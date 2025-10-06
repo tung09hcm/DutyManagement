@@ -7,10 +7,12 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
   host: process.env.DB_HOST,
   dialect: 'mysql',
   logging: false, 
+  timezone: '+07:00'
 });
 
 try{
     await sequelize.authenticate();
+    console.log("Connect to Mysql database successfully");
 }
 catch(e){
     console.log("Cant connect to Mysql database: " + e);
