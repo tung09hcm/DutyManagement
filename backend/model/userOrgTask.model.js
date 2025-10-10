@@ -1,14 +1,14 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../lib/db';
+import sequelize from '../lib/db.js';
 
-const AccessToken = sequelize.define('AccessToken', {
+const UserOrgTask  = sequelize.define('UserOrgTask', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         allowNull: false,
     },
-    token: {
+    role: {
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -16,4 +16,4 @@ const AccessToken = sequelize.define('AccessToken', {
 
 
 
-export default AccessToken;
+export default UserOrgTask ;

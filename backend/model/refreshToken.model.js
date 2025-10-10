@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../lib/db';
+import sequelize from '../lib/db.js';
 
 const RefreshToken = sequelize.define('RefreshToken', {
     id: {
@@ -8,12 +8,15 @@ const RefreshToken = sequelize.define('RefreshToken', {
         primaryKey: true,
         allowNull: false,
     },
-    token: {
+    hashtoken: {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: false
+    }
 });
-
 
 
 export default RefreshToken;

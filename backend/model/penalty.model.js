@@ -1,14 +1,14 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../lib/db';
+import sequelize from '../lib/db.js';
 
-const UserOrganization  = sequelize.define('UserOrganization ', {
+const Penalty = sequelize.define('Penalty', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         allowNull: false,
     },
-    role: {
+    description: {
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -16,4 +16,4 @@ const UserOrganization  = sequelize.define('UserOrganization ', {
 
 
 
-export default UserOrganization ;
+export default Penalty;
