@@ -16,14 +16,29 @@ dotenv.config();
  */
 export const register = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { username, email, password } = req.body;
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser)
       return res.status(400).json({ message: "This email already exists" });
 
+    const existingUserName = await User.findOne({ where: { username } });
+    if (existingUserName)
+      return res.status(400).json({ message: "This username already exists" });
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ fullName, email, password: hashedPassword });
+    const user = await User.create({ 
+      username, 
+      email, 
+      password: hashedPassword,
+      name: "",
+      lastname: "",
+      avatarLink: ""
+    });
+
+    const userObject = user.toJSON();
+    delete userObject.password;
+    delete userObject.id;
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -37,7 +52,7 @@ export const register = async (req, res) => {
 
     // Gửi refreshTokenId trong cookie
     setTokenCookies(res, accessToken, refreshToken, tokenRecord.id);
-    res.status(201).json({ user, accessToken, refreshTokenId: tokenRecord.id });
+    res.status(201).json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
   } catch (error) {
     console.error("Error in register controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -70,7 +85,12 @@ export const login = async (req, res) => {
     });
 
     setTokenCookies(res, accessToken, refreshToken, tokenRecord.id);
-    res.status(200).json({ user, accessToken, refreshTokenId: tokenRecord.id });
+
+    const userObject = user.toJSON();
+    delete userObject.password;
+    delete userObject.id;
+
+    res.status(200).json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
   } catch (error) {
     console.error("Error in login controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
