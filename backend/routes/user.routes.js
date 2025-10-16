@@ -13,14 +13,14 @@ import {
 import upload from '../middleware/upload.js';
 
 const router = express.Router();
-router.put("/editProfile", protectRoute, editProfile);
-router.put("/uploadAvatar", protectRoute, upload.single('avatar'), editAvatarImage);
+router.put("/editProfile", protectRoute, editProfile);                                              //ok
+router.put("/uploadAvatar", protectRoute, upload.single('avatar'), editAvatarImage);                //ok
 
-router.get("/by-org/:orgId", protectRoute, verifyOrgMembership, getUsersByOrg);
-router.get("/role-in-org/:orgId", protectRoute, verifyOrgMembership, getUserRoleInOrg);
+router.get("/by-org/:orgId", protectRoute, verifyOrgMembership, getUsersByOrg);                     //ok
+router.get("/role-in-org/:orgId", protectRoute, verifyOrgMembership, getUserRoleInOrg);             //ok  
 router.get("/orgs/:orgId/tasks/:taskId/users", protectRoute, verifyOrgMembership, getUsersByTask);
-router.get("/search/:name", protectRoute, searchUserByName);
-router.get("/:userId", protectRoute, verifyOrgMembership, getUserById);
+router.get("/search/:name", protectRoute, searchUserByName);                                        //ok
+router.get("/:userId/:orgId", protectRoute, verifyOrgMembership, getUserById);                      //ok
 
 
 export default router;

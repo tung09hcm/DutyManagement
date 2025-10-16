@@ -6,6 +6,7 @@ import Organization from "../model/organization.model.js";
 import UserOrgTask from "../model/userOrgTask.model.js"
 import Task from "../model/task.model.js";
 import cloudinary from "../lib/cloudinary.js";
+import jwt from "jsonwebtoken";
 
 /**
  * POST /api/org/create
@@ -48,9 +49,8 @@ export const generateInviteLink = async (req, res) => {
         const inviteToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
         // Link này sẽ được gửi cho người dùng để họ tham gia
-        const inviteLink = `${process.env.FRONTEND_URL}/join-organization?token=${inviteToken}`;
 
-        res.status(200).json({ inviteLink });
+        res.status(200).json({ inviteToken });
     } catch (error) {
         console.error("Error generating invite link:", error);
         res.status(500).json({ message: "Internal Server Error" });
@@ -82,8 +82,8 @@ export const joinOrganization = async (req, res) => {
         }
 
         await UserOrgTask.create({
-            UserId: userId,
-            OrganizationId: orgId,
+            userId: userId,
+            organizationId: orgId,
             role: "USER"
         });
 
@@ -216,8 +216,8 @@ export const kickMember = async (req, res) => {
         // Tìm và xóa bản ghi thành viên
         const deletedRows = await UserOrgTask.destroy({
             where: {
-                UserId: memberToKickId,
-                OrganizationId: orgId
+                userId: memberToKickId,
+                organizationId: orgId
             }
         });
 

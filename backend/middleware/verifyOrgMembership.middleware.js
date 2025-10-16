@@ -25,6 +25,7 @@ export const verifyOrgMembership = async (req, res, next) => {
         }
 
         // Nếu tìm thấy, người dùng là thành viên hợp lệ -> cho phép đi tiếp
+        console.log("pass org membership middleware")
         next();
 
     } catch (error) {

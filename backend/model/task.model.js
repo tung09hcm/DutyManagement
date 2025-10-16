@@ -37,6 +37,10 @@ const Task = sequelize.define('Task', {
     deadline: {
         type: DataTypes.DATE,
         allowNull: false
+    },
+    id_assign: {
+        type: DataTypes.STRING,
+        allowNull: false,
     }
 });
 

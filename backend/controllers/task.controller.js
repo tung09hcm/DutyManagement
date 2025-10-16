@@ -1,5 +1,5 @@
 import { Task, User, Penalty, sequelize } from "../model/index.js";
-
+import cloudinary from "../lib/cloudinary.js";
 /**
  * POST /api/orgs/:orgId/tasks
  * Tạo một task mới trong một tổ chức và giao cho thành viên.
@@ -7,6 +7,7 @@ import { Task, User, Penalty, sequelize } from "../model/index.js";
  */
 export const createTask = async (req, res) => {
     const transaction = await sequelize.transaction();
+    const who_assign_id = req.user.id;
     try {
         const { orgId } = req.params;
         const { name, description, penalty, deadline, assigneeIds } = req.body; // assigneeIds là một mảng các userId
@@ -23,6 +24,7 @@ export const createTask = async (req, res) => {
             deadline,
             OrganizationId: orgId,
             proof: "", // Khởi tạo proof rỗng
+            id_assign: who_assign_id
         }, { transaction });
 
         // Bước 2: Giao task cho các user trong mảng assigneeIds
@@ -69,8 +71,8 @@ export const createPenalty = async (req, res) => {
 
         const newPenalty = await Penalty.create({
             description,
-            UserId: userId,
-            TaskId: taskId,
+            userId: userId,
+            taskId: taskId,
         });
 
         res.status(201).json({ message: "Penalty created successfully.", penalty: newPenalty });
@@ -114,11 +116,6 @@ export const getUserPenalties = async (req, res) => {
     try {
         const { userId } = req.params;
         const requesterId = req.user.id;
-
-        // Chỉ cho phép user tự xem penalty của mình (hoặc có thể mở rộng cho admin)
-        if (userId !== requesterId) {
-            return res.status(403).json({ message: "Forbidden: You can only view your own penalties." });
-        }
         
         const penalties = await Penalty.findAll({
             where: { UserId: userId },
