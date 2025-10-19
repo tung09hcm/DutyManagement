@@ -131,7 +131,7 @@ export const refresh = async (req, res) => {
 
         const newAccessToken = generateAccessToken(user);
         setTokenCookies(res, newAccessToken, refreshToken, tokenRecord.id);
-        res.status(200).json({ accessToken: newAccessToken });
+        res.status(200).json({ message: "Refresh Token Complete" });
       }
     );
   } catch (error) {
@@ -160,5 +160,14 @@ export const logout = async (req, res) => {
   } catch (error) {
     console.error("Error in logout controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const checkAuth = async (req,res) => {
+  try {
+    return res.status(200).json(req.user);
+  } catch (error) {
+    console.log("Error in checkAuth controller: ", error.message);
+    return res.status(500).json({message: "Internal server error"});
   }
 };
