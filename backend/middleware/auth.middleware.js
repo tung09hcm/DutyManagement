@@ -12,8 +12,8 @@ dotenv.config();
 export const protectRoute = async (req, res, next) => {
     try {
         const accessToken = req.cookies.accessToken;
-        if (!accessToken)
-            return res.status(401).json({ message: "Unauthorized - No token provided" });
+        // if (!accessToken)
+        //     return res.status(401).json({ message: "Unauthorized - No token provided" });
 
         let decoded;
         try {

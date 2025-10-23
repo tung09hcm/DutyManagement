@@ -19,7 +19,7 @@ export const createOrganization = async (req, res) => {
     const org = await Organization.create({
       name,
       description,
-      avatarLink: "",
+      avatarLink: "https://api.dicebear.com/9.x/identicon/svg?seed=" + name,
       backgroundLink: "",
     });
 

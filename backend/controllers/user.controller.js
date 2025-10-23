@@ -243,4 +243,27 @@ export const getUsersByTask = async (req, res) => {
     }
 };
 
+export const getOrgByUserId = async (req,res) => {
+    try {
+        const userId = req.user.id;
+        const orgs = await UserOrgTask.findAll({
+            where: {
+                UserId: userId
+            },
+            include: [
+                {
+                model: Organization,
+                attributes: ["id", "name", "description", "avatarLink"], 
+                },
+            ],
+        });
+        if (!orgs) {
+            return res.status(404).json({ message: "Orgs not found" });
+        }
+        res.status(200).json(orgs);
+    } catch (error) {
+        console.error("Error in getOrgByUserId controller:", error);
+        res.status(500).json({ message: "An internal server error occurred" });
+    }
+}
 

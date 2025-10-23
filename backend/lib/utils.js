@@ -11,7 +11,7 @@ export const generateAccessToken = (user) => {
       fullName: user.fullName,
     },
     process.env.JWT_ACCESS_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "60m" }
   );
 };
 
@@ -30,7 +30,7 @@ export const setTokenCookies = (res, accessToken, refreshToken, refreshTokenId) 
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     sameSite: "strict",
-    maxAge: 15 * 60 * 1000,
+    maxAge: 60 * 60 * 1000,
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,

@@ -33,7 +33,7 @@ export const register = async (req, res) => {
       password: hashedPassword,
       name: "",
       lastname: "",
-      avatarLink: ""
+      avatarLink: "https://api.dicebear.com/9.x/avataaars/svg?seed=" + username
     });
 
     const userObject = user.toJSON();

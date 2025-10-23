@@ -1,5 +1,7 @@
 import { Task, User, Penalty, sequelize } from "../model/index.js";
 import cloudinary from "../lib/cloudinary.js";
+import { Op } from "sequelize";
+
 /**
  * POST /api/orgs/:orgId/tasks
  * Tạo một task mới trong một tổ chức và giao cho thành viên.
@@ -201,4 +203,72 @@ export const updateTaskStatus = async (req, res) => {
         console.error("Error updating task status:", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
+};
+
+export const getTasksForThreeMonths = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+
+    // Ngày đầu tháng hiện tại
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const startOfNextNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+
+    // Lấy task trong 3 tháng (tháng trước, hiện tại, sau)
+    const tasks = await Task.findAll({
+      where: {
+        organizationId: orgId,
+        deadline: {
+          [Op.gte]: startOfPrevMonth,
+          [Op.lt]: startOfNextNextMonth,
+        },
+      },
+      order: [["deadline", "ASC"]],
+    });
+
+    // Chuẩn hoá dữ liệu trả về cho FE calendar
+    const formattedTasks = await Promise.all(
+      tasks.map(async (t) => {
+        // parse người được assign
+        let assignees = [];
+        if (t.id_assign) {
+          // giả sử id_assign là chuỗi JSON hoặc CSV các userId
+          const ids = Array.isArray(t.id_assign)
+            ? t.id_assign
+            : t.id_assign.includes("[")
+            ? JSON.parse(t.id_assign)
+            : t.id_assign.split(",").map((x) => x.trim());
+
+          assignees = await User.findAll({
+            where: { id: ids },
+            attributes: ["id", "username", "avatarLink"],
+          });
+        }
+
+        const dateObj = new Date(t.deadline);
+        const hour = dateObj.getHours().toString().padStart(2, "0");
+        const minute = dateObj.getMinutes().toString().padStart(2, "0");
+
+        return {
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          penalty: t.penalty,
+          status: t.status, // 0  là chưa xong
+          penalty_status: t.penalty_status, // 0 là chưa áp dụng hoặc ko áp dụng
+          proof: t.proof,
+          date: dateObj.toISOString(),
+          time: `${hour}:${minute}`,
+          color: "#3b82f6", // hoặc random nếu bạn muốn
+          assignees,
+        };
+      })
+    );
+
+    return res.status(200).json({ tasks: formattedTasks });
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 };

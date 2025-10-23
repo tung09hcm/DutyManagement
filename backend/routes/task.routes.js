@@ -9,13 +9,19 @@ import {
     deletePenalty,
     getUserPenalties,
     submitTaskProof,
-    updateTaskStatus
+    updateTaskStatus,
+    getTasksForThreeMonths
 } from "../controllers/task.controller.js";
 import upload from '../middleware/upload.js';
 
 
 const router = express.Router();
-
+router.get(
+    "/:orgId/getTask",
+    protectRoute,
+    verifyOrgMembership,
+    getTasksForThreeMonths
+)
 // Tạo một task mới trong một tổ chức
 router.post("/:orgId/tasks", protectRoute, verifyOrgEditorRole, createTask);                        //ok
 
@@ -46,5 +52,7 @@ router.patch(
     verifyOrgEditorRole, // Kiểm tra xem user có phải admin/collaborator của org không
     updateTaskStatus
 );  //ok
+
+
 
 export default router;

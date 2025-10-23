@@ -8,11 +8,14 @@ import {
     getUserRoleInOrg,
     getUserById,
     searchUserByName,
-    getUsersByTask
+    getUsersByTask,
+    getOrgByUserId
 } from "../controllers/user.controller.js";
 import upload from '../middleware/upload.js';
 
 const router = express.Router();
+
+router.get("/getOrgByUser", protectRoute, getOrgByUserId);
 router.put("/editProfile", protectRoute, editProfile);                                              //ok
 router.put("/uploadAvatar", protectRoute, upload.single('avatar'), editAvatarImage);                //ok
 

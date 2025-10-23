@@ -1,42 +1,45 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import { useGroupStore } from "../store/useGroupStore";
 import { BrushCleaning, LogOut, User, ArrowLeft } from "lucide-react";
 import GroupCalendarView from "../components/GroupCalendarView";
 import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
-  const [activeTab, setActiveTab] = useState("all");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showDocs, setShowDocs] = useState(false);
   const { logout, authUser } = useAuthStore();
   const navigate = useNavigate();
+  const { groups, fetchGroups } = useGroupStore();
 
-  const groups = [
-    {
-      id: 1,
-      name: "Room A Cleaners",
-      description: "Main hall & corridor",
-      avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=roomA",
-      createdByMe: true,
-    },
-    {
-      id: 2,
-      name: "Cafeteria Crew",
-      description: "Kitchen and dining area",
-      avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=cafe",
-      createdByMe: false,
-    },
-    {
-      id: 3,
-      name: "Office Squad",
-      description: "Admin rooms and storage",
-      avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=office",
-      createdByMe: true,
-    },
-  ];
+  useEffect(() => {
+    if (authUser?.id) fetchGroups(authUser.id);
+  }, [authUser]);
 
-  const filteredGroups =
-    activeTab === "your" ? groups.filter((g) => g.createdByMe) : groups;
+  // const groups = [
+  //   {
+  //     id: 1,
+  //     name: "Room A Cleaners",
+  //     description: "Main hall & corridor",
+  //     avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=roomA",
+  //     createdByMe: true,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Cafeteria Crew",
+  //     description: "Kitchen and dining area",
+  //     avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=cafe",
+  //     createdByMe: false,
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Office Squad",
+  //     description: "Admin rooms and storage",
+  //     avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=office",
+  //     createdByMe: true,
+  //   },
+  // ];
+
 
   // Nếu đang xem hướng dẫn
   if (showDocs) {
@@ -112,31 +115,12 @@ const HomePage = () => {
       {/* Sidebar */}
       <div className="col-span-1 border-r border-base-300 flex flex-col">
         <div className="flex justify-around items-center p-3 bg-base-200">
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors mx-1 ${
-              activeTab === "all"
-                ? "bg-primary text-primary-content"
-                : "bg-base-300 hover:bg-base-200"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setActiveTab("your")}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors mx-1 ${
-              activeTab === "your"
-                ? "bg-primary text-primary-content"
-                : "bg-base-300 hover:bg-base-200"
-            }`}
-          >
-            Your Groups
-          </button>
+
         </div>
 
         {/* Group list */}
         <div className="flex-1 overflow-y-auto">
-          {filteredGroups.map((group) => (
+          {groups.map((group) => (
             <div
               key={group.id}
               onClick={() => setSelectedGroup(group)}
@@ -145,13 +129,13 @@ const HomePage = () => {
               }`}
             >
               <img
-                src={group.avatar}
-                alt={group.name}
+                src={group.Organization.avatarLink}
+                alt={group.Organization.name}
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div>
-                <h3 className="text-sm font-semibold">{group.name}</h3>
-                <p className="text-xs text-base-content/70">{group.description}</p>
+                <h3 className="text-sm font-semibold">{group.Organization.name}</h3>
+                <p className="text-xs text-base-content/70">{group.Organization.description}</p>
               </div>
             </div>
           ))}
@@ -160,7 +144,7 @@ const HomePage = () => {
         <div className="p-4 bg-base-200">
           <button
             onClick={() => navigate("/profile")}
-            className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors"
+            className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2"
           >
             <User className="size-5" />
             <span className="hidden sm:inline">Profile</span>

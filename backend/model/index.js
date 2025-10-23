@@ -30,7 +30,10 @@ RefreshToken.belongsTo(User, { foreignKey: 'userId' });
 // Bảng trung gian UserOrgTask chứa thông tin bổ sung là "role".
 User.belongsToMany(Organization, { through: UserOrgTask, foreignKey: 'userId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 Organization.belongsToMany(User, { through: UserOrgTask, foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-
+UserOrgTask.belongsTo(User, { foreignKey: "userId" });
+UserOrgTask.belongsTo(Organization, { foreignKey: "organizationId" });
+User.hasMany(UserOrgTask, { foreignKey: "userId" });
+Organization.hasMany(UserOrgTask, { foreignKey: "organizationId" });
 // 3. Organization <-> Task (One-to-Many)
 // Một Organization có nhiều Task, nhưng một Task chỉ thuộc về một Organization.
 Organization.hasMany(Task, { foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
