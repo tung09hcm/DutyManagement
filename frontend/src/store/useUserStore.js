@@ -12,8 +12,8 @@ export const useUserStore = create((set) => ({
       const res = await axiosInstance.get(`/user/by-org/`+orgId);
       set({ users: res.data, isLoading: false });
     } catch (error) {
-      console.error("Error fetching groups:", error);
-      toast.error("Failed to load groups");
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users");
       set({ isLoading: false });
     }
   },

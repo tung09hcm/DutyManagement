@@ -34,7 +34,6 @@ router.delete("/:orgId/penalties/:penaltyId", protectRoute, verifyOrgEditorRole,
 // Lấy tất cả penalty của một user
 router.get("/users/:userId/:orgId/penalties", protectRoute, verifyOrgMembership, verifyOrgEditorRole, getUserPenalties);//ok                            //ok
 
-// Người dùng được giao task nộp bằng chứng (ảnh)
 router.put(                                                                                               
     "/:orgId/:taskId/proof",
     protectRoute,

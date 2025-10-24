@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, Settings, User} from "lucide-react";
-import { useTaskStore } from "../store/useTaskStore";
+import { useTaskStore} from "../store/useTaskStore";
 import { useUserStore } from "../store/useUserStore";
+import AssigneeSelect from "./AssigneeSelect";
+import toast from "react-hot-toast";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -31,8 +33,60 @@ const GroupCalendarView = ({ group, onBack }) => {
   const today = new Date();
   const [viewDate, setViewDate] = useState(today);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [addTaskForm, setAddTaskForm] = useState(null);
   const { users, fetchUsers } = useUserStore();
-  const { tasks, isLoading, fetchTasks } = useTaskStore();
+  const { tasks, isLoading, fetchTasks, addTask, submitTaskProof } = useTaskStore();
+  const [file, setFile] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    penalty: "",
+    deadline: "",
+    assigneeIds: []
+  });
+  const [penaltyData, setPenalyData] = useState({
+    userId: "",
+    description: ""
+  })
+  const handleSubmitEvidence = async (orgId, task_id, task) => {
+      if (!file) return toast.error("Please choose an image!");
+      
+      const res = await submitTaskProof(orgId, task_id, file);
+      // await fetchTasks(group.Organization.id); 
+      setFile(null);
+      task.proof = res.proof;
+      task.status = true;
+      
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      console.log("formData: ", formData);
+      await addTask(formData, group.organizationId);
+      await fetchTasks(group.Organization.id); 
+      setAddTaskForm(null);
+      setSelectedDay(null);
+      setFormData(
+        {
+          name: "",
+          description: "",
+          penalty: "",
+          deadline: "",
+          assigneeIds: []
+        }
+      );
+    } catch (err) {
+      console.error("Add task failed:", err);
+    }
+  };
+  // handleApplyPenalty(group.organizationId,task.id,a.id,task.penalty)
+  const handleApplyPenalty = async( rgId, taskId, userId, taskPenalty) => {
+    try {
+      
+    } catch (error) {
+      
+    }
+  }
 
   useEffect(() => {
     if (group?.Organization?.id) {
@@ -54,11 +108,13 @@ const GroupCalendarView = ({ group, onBack }) => {
   const tasksByDate = useMemo(() => {
     const map = {};
     tasks.forEach((t) => {
-      const date = new Date(t.date); // giả sử backend trả "2025-10-21T00:00:00Z"
-      const key = date.toISOString().split("T")[0];
+      const date = new Date(t.date); 
+      const key = date.toLocaleDateString("en-CA");
+      console.log("t.date: " + t.date + "key: " + key + "t.name: " + t.name);
       if (!map[key]) map[key] = [];
       map[key].push(t);
     });
+    console.log("map: ", map);
     return map;
   }, [tasks]);
 
@@ -90,7 +146,8 @@ const GroupCalendarView = ({ group, onBack }) => {
           ))}
 
           {calendar.flat().map((day) => {
-            const key = day.date.toISOString().split("T")[0];
+            const key = `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, "0")}-${String(day.date.getDate()).padStart(2, "0")}`;
+            // console.log("key: ", key , " day: ", day);
             const dayTasks = tasksByDate[key] || [];
             return (
               <div
@@ -176,10 +233,16 @@ const GroupCalendarView = ({ group, onBack }) => {
             <User className="w-5 h-5"/>
             Manage Users
           </button>
-          <button className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
-            <Settings className="w-5 h-5"/>
-            Settings
-          </button>
+          {/* {
+            group.role == "ADMIN" ? (
+              <button className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
+                <Settings className="w-5 h-5"/>
+                Settings
+              </button>
+            ) : (
+              <div></div>
+            )
+          } */}
           <button className="flex items-center gap-2 btn btn-sm bg-primary text-white hover:bg-primary/90 w-full justify-center">
             <i className="lucide lucide-link w-4 h-4" />
             Create Invite Link
@@ -188,10 +251,11 @@ const GroupCalendarView = ({ group, onBack }) => {
       </div>
 
 
-      {/* Popup */}
+      {/* Popup Tasks*/}
       {selectedDay && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
           <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
+            {/* Header */}
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-semibold text-base-content/90">
                 Tasks – {selectedDay.date.toDateString()}
@@ -214,33 +278,232 @@ const GroupCalendarView = ({ group, onBack }) => {
                   <strong>Penalty: </strong>
                   {task.penalty || "No description"}
                 </div>
-                <div className="mb-2">
-                  {task.status ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-400 rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      Completed
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-400 rounded-full">
-                      <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                      Pending
-                    </span>
+                <div className="mb-2 flex gap-2">
+                  {new Date(task.date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0) && !task.status ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-400 rounded-full">
+                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                        Not done
+                      </span>
+                    ) : task.status ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-400 rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        Completed
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-400 rounded-full">
+                        <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                        Pending
+                      </span>
                   )}
+                  {
+                    task.proof != "" ? (
+                      <a href={task.proof} target = "_blank" className="cursor-pointer bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-500 transition-colors text-xs">
+                        Watch Evidence
+                      </a>
+                    ) : (
+                      // <div className="cursor-pointer bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500 transition-colors text-xs">
+                      //   No Evidence Found !!!
+                      // </div>
+                      <div>
+
+                      </div>
+                    )
+                  }
+                  {
+                    new Date(task.date).setHours(0, 0, 0, 0) === new Date().setHours(0, 0, 0, 0)
+                    && task.assignees.some(u => u.id === group.userId) 
+                    && task.proof == ""
+                    ? (
+                      <div className="flex gap-2">
+                        {/* Nút chọn ảnh */}
+                        <label className="cursor-pointer flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded text-xs font-medium transition-colors">
+                          Choose Image
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setFile(e.target.files[0])}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Hiển thị tên file nếu có */}
+                        {file && (
+                          <p className="text-xs text-white/80 truncate max-w-[180px]">
+                            📎 {file.name}
+                          </p>
+                        )}
+
+                        {/* Nút tải lên */}
+                        <button
+                          disabled={!file}
+                          onClick={() => handleSubmitEvidence(group.organizationId, task.id, task)}
+                          className={`btn btn-xs ${
+                            file ? "btn-primary" : "btn-disabled opacity-50 cursor-not-allowed"
+                          }`}
+                        >
+                          Upload Proof
+                        </button>
+                      </div>
+                    ) : null
+                  }
                 </div>
                 <div className="flex flex-col gap-1 bg-white/10 p-2 rounded-md">
                   {task.assignees.map((a) => (
                     <div key={a.id} className="flex items-center gap-2 text-white/90">
                       <img src={a.avatarLink} alt={a.username} className="w-6 h-6 rounded-full border border-white/50" />
                       <span className="font-medium">{a.username}</span>
-                      <a href={task.proof} target = "_blank" className="cursor-pointer ml-auto bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-500 transition-colors text-xs">
-                        Watch evidence
-                      </a>
+                      <div className="ml-auto flex gap-2">
+                        
+                        {
+                          task.penalty_status ? (
+                            <div className="cursor-pointer bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-500 transition-colors text-xs">
+                              Penalty Applied !!!
+                            </div>
+                          ) : (
+                            <div >
+                              
+                            </div>
+                          )
+                        }
+                        {
+                          !task.penalty_status &&
+                          task.proof == "" &&
+                          new Date(selectedDay.date).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0) ? (
+                            <button
+                            onClick={() => handleApplyPenalty(group.organizationId,task.id,a.id,task.penalty)} 
+                            className="cursor-pointer bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition">
+                              Apply Penalty
+                            </button>
+                          ):null
+                        }
+
+
+                      </div>
+                      
+                      
                     </div>
                   ))}
                 </div>
+                
+                
               </div>
             ))}
+
+            {
+              new Date(selectedDay.date).setHours(0, 0, 0, 0) >= new Date().setHours(0, 0, 0, 0)
+              && group.role == "ADMIN" ? (
+                <button onClick={() => {
+                  setSelectedDay(null);
+                  setAddTaskForm(selectedDay);
+                }} 
+                  className="ml-auto px-3 py-1 border border-white text-white bg-transparent rounded-lg hover:bg-white/10 transition-colors"
+                >Add Task</button>
+              ) : (
+                <div></div>
+              )
+            }
           </div>
+        </div>
+      )}
+
+      {/* Popup Form*/}
+      { addTaskForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+            <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
+              {/* Header */}
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-semibold text-base-content/90">
+                  Tasks – {addTaskForm.date.toDateString()}
+                </h4>
+                <button onClick={() => setAddTaskForm(null)} className="btn btn-xs btn-circle">
+                  <X size={14} />
+                </button>
+              </div>
+              {/* Body */}
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-3"
+              >
+                {/* Task Name */}
+                <div>
+                  <label className="block text-sm font-medium text-base-content/70 mb-1">Task Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full input input-bordered input-sm"
+                    placeholder="Enter task name"
+                    required
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-base-content/70 mb-1">Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full textarea textarea-bordered textarea-sm"
+                    placeholder="Enter task description"
+                    rows="3"
+                  />
+                </div>
+
+                {/* Penalty */}
+                <div>
+                  <label className="block text-sm font-medium text-base-content/70 mb-1">Penalty</label>
+                  <input
+                    type="text"
+                    value={formData.penalty}
+                    onChange={(e) => setFormData({ ...formData, penalty: e.target.value })}
+                    className="w-full input input-bordered input-sm"
+                    placeholder="e.g. Clean the room"
+                  />
+                </div>
+
+                {/* Deadline */}
+                <div>
+                  <label className="block text-sm font-medium text-base-content/70 mb-1">Deadline</label>
+                  <input
+                    type="time"
+                    step="60"
+                    value={
+                      formData.deadline
+                        ? formData.deadline.split(" ")[1]?.slice(0, 5) 
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const dateObj = new Date(addTaskForm.date);
+                      const [hours, minutes] = e.target.value.split(":");
+                      const yyyy = dateObj.getFullYear();
+                      const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+                      const dd = String(dateObj.getDate()).padStart(2, "0");
+
+                      const localString = `${yyyy}-${mm}-${dd} ${hours}:${minutes}`;
+
+                      setFormData({ ...formData, deadline: localString });
+                    }}
+                    className="w-full input input-bordered input-sm"
+                  />
+                </div>
+
+
+
+
+                {/* Assignee IDs */}
+                <AssigneeSelect users={users} formData={formData} setFormData={setFormData} />
+
+                {/* Submit button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors text-sm"
+                  >
+                    Save Task
+                  </button>
+                </div>
+              </form>
+            </div>
         </div>
       )}
     </div>

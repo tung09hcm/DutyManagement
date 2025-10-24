@@ -13,7 +13,8 @@ export const createTask = async (req, res) => {
     try {
         const { orgId } = req.params;
         const { name, description, penalty, deadline, assigneeIds } = req.body; // assigneeIds là một mảng các userId
-
+        console.log("assigneeIds type:", typeof assigneeIds, assigneeIds);
+        console.log("assigneeIds: " + assigneeIds);
         if (!name || !deadline || !assigneeIds || !assigneeIds.length) {
             return res.status(400).json({ message: "Name, deadline, and at least one assignee are required." });
         }
@@ -24,7 +25,7 @@ export const createTask = async (req, res) => {
             description,
             penalty,
             deadline,
-            OrganizationId: orgId,
+            organizationId: orgId,
             proof: "", // Khởi tạo proof rỗng
             id_assign: who_assign_id
         }, { transaction });
@@ -215,7 +216,7 @@ export const getTasksForThreeMonths = async (req, res) => {
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const startOfNextNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
 
-    // Lấy task trong 3 tháng (tháng trước, hiện tại, sau)
+    // 🔹 Lấy task trong 3 tháng có kèm danh sách user được assign
     const tasks = await Task.findAll({
       where: {
         organizationId: orgId,
@@ -224,47 +225,42 @@ export const getTasksForThreeMonths = async (req, res) => {
           [Op.lt]: startOfNextNextMonth,
         },
       },
+      include: [
+        {
+          model: User,
+          through: { attributes: [] }, // bỏ cột trung gian
+          attributes: ["id", "username", "avatarLink"],
+        },
+      ],
       order: [["deadline", "ASC"]],
     });
 
-    // Chuẩn hoá dữ liệu trả về cho FE calendar
-    const formattedTasks = await Promise.all(
-      tasks.map(async (t) => {
-        // parse người được assign
-        let assignees = [];
-        if (t.id_assign) {
-          // giả sử id_assign là chuỗi JSON hoặc CSV các userId
-          const ids = Array.isArray(t.id_assign)
-            ? t.id_assign
-            : t.id_assign.includes("[")
-            ? JSON.parse(t.id_assign)
-            : t.id_assign.split(",").map((x) => x.trim());
-
-          assignees = await User.findAll({
-            where: { id: ids },
-            attributes: ["id", "username", "avatarLink"],
-          });
-        }
-
-        const dateObj = new Date(t.deadline);
-        const hour = dateObj.getHours().toString().padStart(2, "0");
-        const minute = dateObj.getMinutes().toString().padStart(2, "0");
-
-        return {
-          id: t.id,
-          name: t.name,
-          description: t.description,
-          penalty: t.penalty,
-          status: t.status, // 0  là chưa xong
-          penalty_status: t.penalty_status, // 0 là chưa áp dụng hoặc ko áp dụng
-          proof: t.proof,
-          date: dateObj.toISOString(),
-          time: `${hour}:${minute}`,
-          color: "#3b82f6", // hoặc random nếu bạn muốn
-          assignees,
-        };
-      })
-    );
+    // 🔹 Chuẩn hoá dữ liệu trả về
+    const formattedTasks = tasks.map((t) => {
+      const dateObj = new Date(t.deadline);
+      const yyyy = dateObj.getFullYear();
+      const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const dd = String(dateObj.getDate()).padStart(2, "0");
+      const hh = String(dateObj.getHours()).padStart(2, "0");
+      const mi = String(dateObj.getMinutes()).padStart(2, "0");
+      if(t.name === "28-10-1"){
+        console.log(t.name + " " + t.deadline);
+      }
+      return {
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        penalty: t.penalty,
+        status: t.status,
+        penalty_status: t.penalty_status,
+        proof: t.proof,
+        date: `${yyyy}-${mm}-${dd} ${hh}:${mi}`,
+        time: `${hh}:${mi}`,
+        color: "#3b82f6",
+        assignedBy: t.id_assign, // người giao
+        assignees: t.Users || [], // danh sách người được giao từ UserTasks
+      };
+    });
 
     return res.status(200).json({ tasks: formattedTasks });
   } catch (error) {

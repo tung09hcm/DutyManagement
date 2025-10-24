@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 
 export const useTaskStore = create((set) => ({
   tasks: [],
+  evidence: "",
   isLoading: false,
 
   fetchTasks: async (orgId) => {
@@ -14,6 +15,55 @@ export const useTaskStore = create((set) => ({
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.message || "Failed to fetch tasks");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  addTask: async (data,orgId) => {
+    try {
+      set({ isLoading: true });
+      const res = await axiosInstance.post(`/tasks/${orgId}/tasks`,data);
+      set({ tasks: res.data.tasks || [] });
+      toast.success("Add Task Successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to Add tasks");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  submitTaskProof: async (orgId, taskId, file) => {
+    try {
+      if (!file) {
+        toast.error("Please select an image first");
+        return;
+      }
+
+      set({ isLoading: true });
+      const formData = new FormData();
+      formData.append("proofImage", file);
+
+      const res = await axiosInstance.put(
+        `/tasks/${orgId}/${taskId}/proof`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      const updatedTask = res.data.task;
+      set((state) => ({
+        tasks: state.tasks.map((t) =>
+          t.id === updatedTask.id ? updatedTask : t
+        ),
+      }));
+
+      toast.success("Proof uploaded!");
+      return updatedTask;
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Upload failed");
     } finally {
       set({ isLoading: false });
     }

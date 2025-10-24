@@ -16,8 +16,8 @@ export const verifyOrgEditorRole = async (req, res, next) => {
             }
         });
 
-        const hasPermission = membership && (membership.role === "ADMIN" || membership.role === "COLLABORATOR");
-
+        const hasPermission = membership && (membership.role == "ADMIN" || membership.role == "COLLABORATOR");
+        // console.log(membership.toJSON);
         if (!hasPermission) {
             return res.status(403).json({ message: "Forbidden: You must be an admin or collaborator to perform this action." });
         }
