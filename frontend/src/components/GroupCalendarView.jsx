@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, Settings, User} from "lucide-react";
 import { useTaskStore} from "../store/useTaskStore";
 import { useUserStore } from "../store/useUserStore";
+import { useGroupStore } from "../store/useGroupStore";
 import AssigneeSelect from "./AssigneeSelect";
 import toast from "react-hot-toast";
 
@@ -35,7 +36,8 @@ const GroupCalendarView = ({ group, onBack }) => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [addTaskForm, setAddTaskForm] = useState(null);
   const { users, fetchUsers } = useUserStore();
-  const { tasks, isLoading, fetchTasks, addTask, submitTaskProof } = useTaskStore();
+  const { tasks, isLoading, fetchTasks, addTask, submitTaskProof, applyPenalty } = useTaskStore();
+  const { createInviteToken } = useGroupStore();
   const [file, setFile] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -44,19 +46,31 @@ const GroupCalendarView = ({ group, onBack }) => {
     deadline: "",
     assigneeIds: []
   });
-  const [penaltyData, setPenalyData] = useState({
-    userId: "",
-    description: ""
-  })
+  const handleCreateInviteToken = async(orgId) => {
+    try {
+      const res = await createInviteToken(orgId);
+
+      if (res?.inviteToken) {
+        // Copy token vào clipboard
+        await navigator.clipboard.writeText(res.inviteToken);
+
+        toast.success("Copied invite link to clipboard!");
+      } else {
+        toast.error("No invite token returned!");
+      }
+    } catch (error) {
+      console.error("Error creating invite token:", error);
+      toast.error("Failed to create invite token!");
+    }
+  }
   const handleSubmitEvidence = async (orgId, task_id, task) => {
-      if (!file) return toast.error("Please choose an image!");
-      
-      const res = await submitTaskProof(orgId, task_id, file);
-      // await fetchTasks(group.Organization.id); 
-      setFile(null);
-      task.proof = res.proof;
-      task.status = true;
-      
+    if (!file) return toast.error("Please choose an image!");
+    
+    const res = await submitTaskProof(orgId, task_id, file);
+    await fetchTasks(group.Organization.id); 
+    setFile(null);
+    task.proof = res.proof;
+    task.status = true;
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,11 +94,16 @@ const GroupCalendarView = ({ group, onBack }) => {
     }
   };
   // handleApplyPenalty(group.organizationId,task.id,a.id,task.penalty)
-  const handleApplyPenalty = async( rgId, taskId, userId, taskPenalty) => {
+  const handleApplyPenalty = async( orgId, taskId, userIds, taskPenalty,task) => {
     try {
-      
+
+      console.log("userId: ", userIds);
+      task.penalty_status = 1;
+      await applyPenalty(orgId, taskId, userIds, taskPenalty);
+
+
     } catch (error) {
-      
+      console.error("Apply penalty failed:", error);
     }
   }
 
@@ -243,7 +262,9 @@ const GroupCalendarView = ({ group, onBack }) => {
               <div></div>
             )
           } */}
-          <button className="flex items-center gap-2 btn btn-sm bg-primary text-white hover:bg-primary/90 w-full justify-center">
+          <button 
+            onClick={() => handleCreateInviteToken(group.organizationId)}
+            className="flex items-center gap-2 btn btn-sm bg-primary text-white hover:bg-primary/90 w-full justify-center">
             <i className="lucide lucide-link w-4 h-4" />
             Create Invite Link
           </button>
@@ -264,7 +285,13 @@ const GroupCalendarView = ({ group, onBack }) => {
                 <X size={14} />
               </button>
             </div>
-
+            {
+              selectedDay.tasks.length === 0 ? (
+                <div>
+                  There are no tasks here
+                </div>
+              ) : null
+            }
             {selectedDay.tasks.map((task) => (
               <div key={task.id} className="p-3 mb-3 rounded-lg text-white text-sm shadow-md" style={{ backgroundColor: task.color }}>
                 <div className="font-semibold mb-2">
@@ -346,6 +373,17 @@ const GroupCalendarView = ({ group, onBack }) => {
                       </div>
                     ) : null
                   }
+                  {
+                    !task.penalty_status &&
+                    task.proof == "" &&
+                    new Date(selectedDay.date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0) ? (
+                      <button
+                      onClick={() => handleApplyPenalty(group.organizationId,task.id,task.assignees,task.penalty,task)} 
+                      className="cursor-pointer bg-red-600 hover:bg-red-700 text-white font-semibold px-3 py-1 rounded-lg transition">
+                        Apply Penalty
+                      </button>
+                    ):null
+                  }
                 </div>
                 <div className="flex flex-col gap-1 bg-white/10 p-2 rounded-md">
                   {task.assignees.map((a) => (
@@ -356,7 +394,7 @@ const GroupCalendarView = ({ group, onBack }) => {
                         
                         {
                           task.penalty_status ? (
-                            <div className="cursor-pointer bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-500 transition-colors text-xs">
+                            <div className="bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-500 transition-colors text-xs">
                               Penalty Applied !!!
                             </div>
                           ) : (
@@ -365,17 +403,7 @@ const GroupCalendarView = ({ group, onBack }) => {
                             </div>
                           )
                         }
-                        {
-                          !task.penalty_status &&
-                          task.proof == "" &&
-                          new Date(selectedDay.date).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0) ? (
-                            <button
-                            onClick={() => handleApplyPenalty(group.organizationId,task.id,a.id,task.penalty)} 
-                            className="cursor-pointer bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition">
-                              Apply Penalty
-                            </button>
-                          ):null
-                        }
+                        
 
 
                       </div>
@@ -391,7 +419,7 @@ const GroupCalendarView = ({ group, onBack }) => {
 
             {
               new Date(selectedDay.date).setHours(0, 0, 0, 0) >= new Date().setHours(0, 0, 0, 0)
-              && group.role == "ADMIN" ? (
+              && (group.role == "ADMIN" || group.role == "COLLABORATOR" ) ? (
                 <button onClick={() => {
                   setSelectedDay(null);
                   setAddTaskForm(selectedDay);

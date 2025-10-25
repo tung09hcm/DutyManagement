@@ -49,7 +49,7 @@ export const generateInviteLink = async (req, res) => {
         const inviteToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
         // Link này sẽ được gửi cho người dùng để họ tham gia
-
+        console.log("inviteToken: ", inviteToken);
         res.status(200).json({ inviteToken });
     } catch (error) {
         console.error("Error generating invite link:", error);
@@ -73,6 +73,12 @@ export const joinOrganization = async (req, res) => {
         const decoded = jwt.verify(inviteToken, process.env.JWT_SECRET);
         const { orgId } = decoded;
 
+        // Kiểm tra xem tổ chức có tồn tại không
+        const organization = await Organization.findByPk(orgId);
+        if (!organization) {
+            return res.status(404).json({ message: "Organization not found." });
+        }
+
         const isAlreadyMember = await UserOrgTask.findOne({
             where: { UserId: userId, OrganizationId: orgId }
         });
@@ -86,8 +92,33 @@ export const joinOrganization = async (req, res) => {
             organizationId: orgId,
             role: "USER"
         });
-
-        res.status(200).json({ message: "Successfully joined the organization." });
+        // {
+        //     "id": "38aa35cb-78a1-48f8-9523-dd6628eddb0c",
+        //     "role": "ADMIN",
+        //     "createdAt": "2025-10-25T08:21:37.000Z",
+        //     "updatedAt": "2025-10-25T08:21:37.000Z",
+        //     "userId": "132438f2-d730-4a3b-83df-b0782f32da9c",
+        //     "organizationId": "7b22280e-abfe-4a5b-8cb1-08094eff488b",
+        //     "Organization": {
+        //         "id": "7b22280e-abfe-4a5b-8cb1-08094eff488b",
+        //         "name": "A20 - 206 ( KTX )",
+        //         "description": "Phòng dọn KTX",
+        //         "avatarLink": "https://api.dicebear.com/9.x/identicon/svg?seed=A20 - 206 ( KTX )"
+        //     }
+        // }
+        res.status(200).json({ 
+            role: "USER",
+            createdAt: organization.createdAt,
+            updatedAt: organization.updatedAt,
+            userId: userId,
+            organizationId: organization.id,
+            Organization: {
+                id: organization.id,
+                name: organization.name,
+                description: organization.description,
+                avatarLink: organization.avatarLink
+            }
+        });
     } catch (error) {
         if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
             return res.status(400).json({ message: "Invalid or expired invite token." });

@@ -68,4 +68,21 @@ export const useTaskStore = create((set) => ({
       set({ isLoading: false });
     }
   },
+  applyPenalty: async(orgId, taskId, userIds, taskPenalty) => {
+    try {
+      set({ isLoading: true });
+      const payload = {
+        userIds,
+        description: taskPenalty
+      };
+      // /:orgId/tasks/:taskId/penalties
+      await axiosInstance.post(`/tasks/${orgId}/tasks/${taskId}/penalties`,payload);
+      toast.success("Apply Penalty Successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Apply penalty failed");
+    }finally {
+      set({ isLoading: false });
+    }
+  }
 }));

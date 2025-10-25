@@ -12,6 +12,10 @@ const Penalty = sequelize.define('Penalty', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    organizationId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
 });
 
 

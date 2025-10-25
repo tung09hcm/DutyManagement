@@ -1,21 +1,48 @@
 import { useState,useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useGroupStore } from "../store/useGroupStore";
-import { BrushCleaning, LogOut, User, ArrowLeft } from "lucide-react";
+import { BrushCleaning, LogOut, User, ArrowLeft,Pencil, X  } from "lucide-react";
 import GroupCalendarView from "../components/GroupCalendarView";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const HomePage = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showDocs, setShowDocs] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const { logout, authUser } = useAuthStore();
   const navigate = useNavigate();
-  const { groups, fetchGroups } = useGroupStore();
-
+  const { groups, fetchGroups, createGroup, joinOrg } = useGroupStore();
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("Group name is required");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await createGroup(formData);
+      await fetchGroups(); // reload danh sách nhóm
+      setShowCreateForm(false); // đóng modal
+    } finally {
+      setFormData({ name: "", description: "" });
+      setIsSubmitting(false);
+    }
+  };
   useEffect(() => {
     if (authUser?.id) fetchGroups(authUser.id);
   }, [authUser]);
-
+  const [showJoinGroup, setShowJoinGroup] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   // const groups = [
   //   {
   //     id: 1,
@@ -115,7 +142,10 @@ const HomePage = () => {
       {/* Sidebar */}
       <div className="col-span-1 border-r border-base-300 flex flex-col">
         <div className="flex justify-around items-center p-3 bg-base-200">
-
+            <button onClick = {() => {setShowCreateForm(true)}}className="cursor-pointer btn btn-primary">
+              <Pencil className="w-5 h-5" />
+              Create Your Group
+            </button>
         </div>
 
         {/* Group list */}
@@ -187,17 +217,114 @@ const HomePage = () => {
             </p>
 
             <div className="flex justify-center gap-4">
-              <button className="btn btn-primary">Get Started</button>
-              <button
-                onClick={() => setShowDocs(true)}
-                className="btn btn-outline"
-              >
-                Learn More
-              </button>
+              {
+                !showJoinGroup ?
+                (
+                  <div className="flex justify-center gap-4">
+                    <button onClick = {() => {setShowJoinGroup(true)}}className="btn btn-primary">Get Started</button>
+                    <button
+                      onClick={() => setShowDocs(true)}
+                      className="btn btn-outline"
+                    >
+                      Learn More
+                    </button>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      try {
+                        await joinOrg(inviteCode); // join thành công
+                        toast.success("Joined group successfully!");
+                        await fetchGroups(authUser.id); // reload danh sách nhóm mới nhất
+                        setShowJoinGroup(false); // đóng form
+                        setInviteCode(""); // clear input
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || "Failed to join group");
+                      }
+                    }}
+                    className="flex flex-col sm:flex-row gap-3 items-center"
+                  >
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Enter your invite code..."
+                      className="input input-bordered w-full sm:w-80"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-success w-full sm:w-auto"
+                    >
+                      Join Group
+                    </button>
+                  </form>
+                )
+              }       
             </div>
           </div>
         </div>
       )}
+
+      {/* Create Group Form */}
+      { showCreateForm ? (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+          <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold text-base-content">
+                Create Your Group
+              </h2>
+              <button onClick={() => setShowCreateForm(false)} className="btn btn-xs btn-circle">
+                <X size={14} />
+              </button>
+            </div>
+            {/* Body */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-base-content/80">
+                  Group Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter group name"
+                  className="input input-bordered w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-base-content/80">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Describe your group"
+                  className="textarea textarea-bordered w-full min-h-[100px]"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 active:scale-95"
+                >
+                  {isSubmitting ? "Creating..." : "Create Group"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div> 
+      ) : null
+
+      }
     </div>
   );
 };

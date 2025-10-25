@@ -7,6 +7,7 @@ import Task from './task.model.js';
 import RefreshToken from './refreshToken.model.js';
 import UserOrgTask from './userOrgTask.model.js';
 import Penalty from './penalty.model.js'; // <-- Thêm model Penalty
+import UserTask from "./userTask.model.js";
 
 const db = {
     sequelize,
@@ -42,9 +43,12 @@ Task.belongsTo(Organization, { foreignKey: 'organizationId' });
 // 4. User <-> Task (Many-to-Many)
 // Một User có thể được giao nhiều Task, và một Task có thể có nhiều User thực hiện.
 // Sequelize sẽ tự động tạo bảng trung gian 'UserTasks'.
-User.belongsToMany(Task, { through: 'UserTasks', foreignKey: 'userId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-Task.belongsToMany(User, { through: 'UserTasks', foreignKey: 'taskId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-
+User.belongsToMany(Task, { through: UserTask, foreignKey: 'userId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Task.belongsToMany(User, { through: UserTask, foreignKey: 'taskId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Organization.hasMany(Penalty, { foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Penalty.belongsTo(Organization, { foreignKey: 'organizationId' });
+Organization.hasMany(UserTask, { foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+UserTask.belongsTo(Organization, { foreignKey: 'organizationId' });
 // 5. User/Task -> Penalty (One-to-Many from both)
 // Một User có thể có nhiều Penalty. Một Task cũng có thể có nhiều Penalty.
 // Mỗi bản ghi Penalty thuộc về MỘT User và MỘT Task.
@@ -72,5 +76,6 @@ export {
     Task,
     RefreshToken,
     UserOrgTask,
+    UserTask,
     Penalty
 };

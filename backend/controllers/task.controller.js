@@ -31,7 +31,11 @@ export const createTask = async (req, res) => {
         }, { transaction });
 
         // Bước 2: Giao task cho các user trong mảng assigneeIds
-        await newTask.setUsers(assigneeIds, { transaction });
+        await newTask.addUsers(assigneeIds, {
+            through: { organizationId: orgId },
+            transaction
+        });
+
 
         // Nếu mọi thứ thành công, commit transaction
         await transaction.commit();
@@ -52,39 +56,60 @@ export const createTask = async (req, res) => {
  * Yêu cầu quyền ADMIN hoặc COLLABORATOR.
  */
 export const createPenalty = async (req, res) => {
-    try {
-        const { taskId } = req.params;
-        const { userId, description } = req.body;
+  try {
+    const { taskId } = req.params;
+    const { userIds, description } = req.body;
 
-        const task = await Task.findByPk(taskId);
-        if (!task) {
-            return res.status(404).json({ message: "Task not found." });
-        }
+    console.log("userIds: ", userIds);
 
-        // Kiểm tra xem deadline đã qua chưa
-        if (new Date() < new Date(task.deadline)) {
-            return res.status(400).json({ message: "Cannot create penalty before the deadline has passed." });
-        }
-
-        // Kiểm tra xem user có được giao task này không
-        const isAssigned = await task.hasUser(userId);
-        if (!isAssigned) {
-            return res.status(400).json({ message: "This user is not assigned to the task." });
-        }
-
-        const newPenalty = await Penalty.create({
-            description,
-            userId: userId,
-            taskId: taskId,
-        });
-
-        res.status(201).json({ message: "Penalty created successfully.", penalty: newPenalty });
-
-    } catch (error) {
-        console.error("Error creating penalty:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+    const task = await Task.findByPk(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
     }
+
+    // Kiểm tra xem deadline đã qua chưa
+    if (new Date() < new Date(task.deadline)) {
+      return res.status(400).json({ message: "Cannot create penalty before the deadline has passed." });
+    }
+
+    // Duyệt qua từng user trong danh sách
+    const createdPenalties = [];
+
+    for (const u of userIds) {
+      const userId = u.id;
+
+      // Kiểm tra xem user có được giao task này không
+      const isAssigned = await task.hasUser(userId);
+      if (!isAssigned) {
+        console.warn(`User ${userId} is not assigned to task ${taskId}, skipping...`);
+        continue;
+      }
+
+      const penalty = await Penalty.create({
+        description,
+        userId,
+        taskId,
+        organizationId: task.organizationId,
+      });
+
+      createdPenalties.push(penalty);
+    }
+
+    // Cập nhật trạng thái task
+    task.penalty_status = true;
+    await task.save();
+
+    res.status(201).json({
+      message: "Penalties created successfully.",
+      penalties: createdPenalties,
+    });
+
+  } catch (error) {
+    console.error("Error creating penalty:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
+
 
 /**
  * DELETE /api/orgs/:orgId/penalties/:penaltyId
