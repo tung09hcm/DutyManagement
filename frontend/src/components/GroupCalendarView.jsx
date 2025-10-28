@@ -30,10 +30,12 @@ const generateMonthDays = (year, month) => {
   return weeks;
 };
 
-const GroupCalendarView = ({ group, onBack }) => {
+const GroupCalendarView = ({ group, onBack, manageUser  }) => {
   const today = new Date();
   const [viewDate, setViewDate] = useState(today);
+
   const [selectedDay, setSelectedDay] = useState(null);
+
   const [addTaskForm, setAddTaskForm] = useState(null);
   const { users, fetchUsers } = useUserStore();
   const { tasks, isLoading, fetchTasks, addTask, submitTaskProof, applyPenalty } = useTaskStore();
@@ -248,9 +250,11 @@ const GroupCalendarView = ({ group, onBack }) => {
 
         {/* Thanh hành động cuối cùng */}
         <div className="border-t border-base-300 mt-3 pt-3 flex flex-col gap-2">
-          <button className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
-            <User className="w-5 h-5"/>
-            Manage Users
+          <button 
+            onClick={manageUser}
+            className="cursor-pointer flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
+            <Settings className="w-5 h-5"/>
+            Manage Group
           </button>
           {/* {
             group.role == "ADMIN" ? (
