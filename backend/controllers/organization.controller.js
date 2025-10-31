@@ -142,10 +142,12 @@ export const editUserRole = async (req, res) => {
         });
 
         if (!membershipToEdit) {
+            console.log("User is not a member of this organization.");
             return res.status(404).json({ message: "User is not a member of this organization." });
         }
 
         if (membershipToEdit.role !== 'USER') {
+            console.log("Can only change the role of a USER.");
             return res.status(400).json({ message: "Can only change the role of a USER." });
         }
         

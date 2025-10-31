@@ -50,5 +50,14 @@ export const useGroupStore = create((set) => ({
       console.log("Error join organization", error);
       toast.error("Failed to join organization via inviteToken");
     }
-  }
+  },
+  editUserRole: async(orgId, userId) => {
+    try {
+      await axiosInstance.put(`/org/${orgId}/members/${userId}/role`);
+      toast.success("Change User's role succesfully");
+    } catch (error) {
+      console.log("Change User's role failed", error);
+      toast.error("Failed to change user role", error);
+    }
+  },
 }));

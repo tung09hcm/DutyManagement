@@ -10,12 +10,14 @@ import {
     getUserPenalties,
     submitTaskProof,
     updateTaskStatus,
-    getTasksForThreeMonths
+    getTasksForThreeMonths,
+    getPenalties
 } from "../controllers/task.controller.js";
 import upload from '../middleware/upload.js';
 
 
 const router = express.Router();
+router.get("/:orgId/penalties", protectRoute, verifyOrgMembership, getPenalties);
 router.get(
     "/:orgId/getTask",
     protectRoute,

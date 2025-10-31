@@ -2,6 +2,7 @@ import { UserOrgTask } from '../model/index.js'; // Đảm bảo đường dẫn
 
 export const verifyOrgMembership = async (req, res, next) => {
     try {
+        console.log("verifyOrgMembership triggered");
         const userId = req.user.id;
         const { orgId } = req.params;
 

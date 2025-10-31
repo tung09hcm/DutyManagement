@@ -278,6 +278,9 @@ export const getTasksForThreeMonths = async (req, res) => {
         penalty: t.penalty,
         status: t.status,
         penalty_status: t.penalty_status,
+        deadline: t.deadline,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
         proof: t.proof,
         date: `${yyyy}-${mm}-${dd} ${hh}:${mi}`,
         time: `${hh}:${mi}`,
@@ -290,6 +293,34 @@ export const getTasksForThreeMonths = async (req, res) => {
     return res.status(200).json({ tasks: formattedTasks });
   } catch (error) {
     console.error("Error fetching tasks:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getPenalties = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    console.log("orgId: ", orgId);
+    const penalties = await Penalty.findAll({
+      where: {
+        organizationId: orgId
+      },
+      include: [
+        {
+          model: User,
+          attributes: ["id", "username", "email", "avatarLink", "name", "lastname"],
+        },
+        {
+          model: Task,
+          attributes: ["description", "name"],
+        },
+      ],
+      order: [["updatedAt", "ASC"]],
+    })
+    console.log("penalties: ", penalties);
+    return res.status(200).json({penalties: penalties});
+  } catch (error) {
+    console.error("Error fetching penalties:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
