@@ -29,17 +29,20 @@ export const generateRefreshToken = (user) => {
 export const setTokenCookies = (res, accessToken, refreshToken, refreshTokenId) => {
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    sameSite: "strict",
+    secure: true,
+    sameSite: "none",
     maxAge: 60 * 60 * 1000,
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    sameSite: "strict",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   res.cookie("refreshTokenId", refreshTokenId, {
     httpOnly: true,
-    sameSite: "strict",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
