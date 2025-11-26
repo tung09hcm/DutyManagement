@@ -18,7 +18,8 @@ export const verifyOrgMembership = async (req, res, next) => {
                 OrganizationId: orgId
             }
         });
-
+        console.log("userId: ", userId);
+        console.log("orgId: ", orgId);
         // Nếu không tìm thấy bản ghi nào, nghĩa là user không phải thành viên
         if (!membership) {
             // 403 Forbidden: Đã xác thực nhưng không có quyền truy cập

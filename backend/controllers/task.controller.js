@@ -1,4 +1,4 @@
-import { Task, User, Penalty, sequelize } from "../model/index.js";
+import { Task, User, Penalty, sequelize, UserOrgTask, UserTask } from "../model/index.js";
 import cloudinary from "../lib/cloudinary.js";
 import { Op } from "sequelize";
 
@@ -18,13 +18,14 @@ export const createTask = async (req, res) => {
         if (!name || !deadline || !assigneeIds || !assigneeIds.length) {
             return res.status(400).json({ message: "Name, deadline, and at least one assignee are required." });
         }
-
+        const d = new Date(deadline);
+        d.setHours(23, 59, 59, 999);
         // Bước 1: Tạo Task bên trong transaction
         const newTask = await Task.create({
             name,
             description,
             penalty,
-            deadline,
+            deadline: d,
             organizationId: orgId,
             proof: "", // Khởi tạo proof rỗng
             id_assign: who_assign_id
@@ -50,6 +51,113 @@ export const createTask = async (req, res) => {
     }
 };
 
+export const autoAssign = async (req, res) => {
+  const who_assign_id = req.user.id;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { orgId } = req.params;
+    const { tasks, begin, end, includeAdmin } = req.body;
+
+    // --- Lấy danh sách user trong org ---
+    let users = [];
+
+    if (includeAdmin) {
+      users = await UserOrgTask.findAll({
+        where: { organizationId: orgId },
+      });
+    } else {
+      users = await UserOrgTask.findAll({
+        where: { organizationId: orgId, role: "USER" },
+      });
+    }
+
+    if (users.length === 0) {
+      await transaction.rollback();
+      return res.status(400).json({ message: "No users in this organization to assign tasks." });
+    }
+
+    let userIndex = 0;
+
+    // Chuyển begin/end
+    const startDate = new Date(begin);
+    const endDate = new Date(end);
+
+    // --- Lặp qua từng task mẫu ---
+    for (const sampleTask of tasks) {
+      let cursorDate = new Date(startDate);
+
+      const interval = sampleTask.frequent === 7 ? 7 : 1;
+
+      // --- Lặp ngày theo frequent ---
+      while (cursorDate <= endDate) {
+        // Deadline = cuối ngày
+        const deadline = new Date(cursorDate);
+        deadline.setHours(23, 59, 59, 999);
+
+        // --- Gán cho user (xoay vòng) ---
+        const assignedUser = users[userIndex];
+        userIndex = (userIndex + 1) % users.length;
+
+        // --- Tạo task thật ---
+        const createdTask = await Task.create(
+          {
+            name: sampleTask.name,
+            description: sampleTask.description,
+            penalty: sampleTask.penalty,
+            organizationId: orgId,
+            deadline,
+            proof: "",
+            status: false,
+            id_assign: who_assign_id
+          },
+          { transaction }
+        );
+
+        // --- Gắn user thực hiện ---
+        await UserTask.create(
+          {
+            userId: assignedUser.userId,
+            taskId: createdTask.id,
+            organizationId: orgId
+          },
+          { transaction }
+        );
+
+        // --- Tiến ngày ---
+        cursorDate.setDate(cursorDate.getDate() + interval);
+      }
+    }
+
+    await transaction.commit();
+    return res.status(200).json({ message: "Tasks auto-assigned successfully." });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error auto assign task:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteTask = async (req,res) => {
+  try{
+    const { taskId } = req.params;
+    const deletedRows = await Task.destroy({
+      where: { 
+        id: taskId,
+        status: false
+      }
+    });
+    if (deletedRows === 0) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    res.status(200).json({ message: "Task deleted successfully." });
+  }catch(error){
+    console.error("Error deleting task:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
 /**
  * POST /api/orgs/:orgId/tasks/:taskId/penalties
  * Tạo penalty cho một user cụ thể của một task đã quá hạn.
@@ -324,3 +432,17 @@ export const getPenalties = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// export const editTask = async (req,res) => {
+//   try{
+//     const { taskId } = req.params;
+//     const who_assign_id = req.user.id;
+//     const { name, description, penalty, assigneeIds } = req.body;
+//     // Vào UserTask để xóa hết các mối liên hệ nếu có trong assigneeIds
+
+
+//   }catch(error){
+//     console.error("Error edit task: ", error);
+//     return res.status(500).json({message: "Internal server error"});
+//   }
+// }

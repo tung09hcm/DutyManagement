@@ -15,7 +15,8 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: "https://dutymanagement-2.onrender.com",
+    origin: "http://localhost:5173",
+    // origin: "https://dutymanagement-1.onrender.com",
     credentials: true
 }));
 

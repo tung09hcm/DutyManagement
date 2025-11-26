@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, X, Settings, User} from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Settings, User, Trash} from "lucide-react";
 import { useTaskStore} from "../store/useTaskStore";
 import { useUserStore } from "../store/useUserStore";
 import { useGroupStore } from "../store/useGroupStore";
@@ -31,14 +31,43 @@ const generateMonthDays = (year, month) => {
 };
 
 const GroupCalendarView = ({ group, onBack, manageUser  }) => {
+  // Thêm 1 task trống
+  const addEmptyTask = () => {
+    setAutoAssignData((prev) => ({
+      ...prev,
+      tasks: [
+        ...prev.tasks,
+        {
+          name: "",
+          description: "",
+          penalty: 0,
+          status: false,
+          frequent: 1,
+          proof: "",
+          penalty_status: false,
+        },
+      ],
+    }));
+  };
+
+  // Update field trong tasks[index]
+  const updateTaskField = (index, field, value) => {
+    setAutoAssignData((prev) => {
+      const updatedTasks = [...prev.tasks];
+      updatedTasks[index] = { ...updatedTasks[index], [field]: value };
+      return { ...prev, tasks: updatedTasks };
+    });
+  };
+
   const today = new Date();
   const [viewDate, setViewDate] = useState(today);
+  const [autoAssignFormOpen, setAutoAssignFormOpen] = useState(false);
 
   const [selectedDay, setSelectedDay] = useState(null);
 
   const [addTaskForm, setAddTaskForm] = useState(null);
   const { users, fetchUsers } = useUserStore();
-  const { tasks, isLoading, fetchTasks, addTask, submitTaskProof, applyPenalty } = useTaskStore();
+  const { tasks, isLoading, fetchTasks, addTask, submitTaskProof, applyPenalty,autoAssign,deleteTask } = useTaskStore();
   const { createInviteToken } = useGroupStore();
   const [file, setFile] = useState(null);
   const [formData, setFormData] = useState({
@@ -74,6 +103,51 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
     task.proof = res.proof;
     task.status = true;
   };
+  const [autoAssignData, setAutoAssignData] = useState({
+    tasks: [
+      {
+        name: "",
+        description: "",
+        penalty: 0,
+        status: false,
+        frequent: 1,
+        proof: "",
+        penalty_status: false,
+      },
+    ],
+    begin: "",
+    end: "",
+    includeAdmin: false,
+  });
+  const handleAutoAssignSubmit = async (e) => {
+    e.preventDefault();
+    const orgId = group.organizationId;
+
+    try {
+      await autoAssign(orgId, autoAssignData);
+
+      // Reset form
+      setAutoAssignData({
+        tasks: [
+          {
+            name: "",
+            description: "",
+            penalty: 0,
+            status: false,
+            frequent: 1,
+            proof: "",
+            penalty_status: false,
+          },
+        ],
+        begin: "",
+        end: "",
+        includeAdmin: false,
+      });
+    } catch (err) {
+      console.error("Auto assign failed:", err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -253,23 +327,22 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
           <button 
             onClick={manageUser}
             className="cursor-pointer flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
-            <Settings className="w-5 h-5"/>
-            Manage Group
+            Group info
           </button>
-          {/* {
+          {
             group.role == "ADMIN" ? (
-              <button className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
-                <Settings className="w-5 h-5"/>
-                Settings
+              <button 
+                onClick={() => setAutoAssignFormOpen(true)}
+                className="cursor-pointer flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
+                Auto assignment
               </button>
             ) : (
               <div></div>
             )
-          } */}
+          }
           <button 
             onClick={() => handleCreateInviteToken(group.organizationId)}
-            className="flex items-center gap-2 btn btn-sm bg-primary text-white hover:bg-primary/90 w-full justify-center">
-            <i className="lucide lucide-link w-4 h-4" />
+            className="cursor-pointer flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
             Create Invite Link
           </button>
         </div>
@@ -297,7 +370,24 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
               ) : null
             }
             {selectedDay.tasks.map((task) => (
-              <div key={task.id} className="p-3 mb-3 rounded-lg text-white text-sm shadow-md" style={{ backgroundColor: task.color }}>
+              <div key={task.id} className="relative p-3 mb-3 rounded-lg text-white text-sm shadow-md" style={{ backgroundColor: task.color }}>
+                {group.role === "ADMIN" ? (
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-error absolute top-2 right-2"
+                    onClick={async () => {
+                      await deleteTask(group.organizationId, task.id);
+                      setSelectedDay((prev) => ({
+                        ...prev,
+                        tasks: prev.tasks.filter((t) => t.id !== task.id),
+                      }));
+                    }}
+                  >
+                    Delete
+                  </button>
+                ) : null}
+
+                
                 <div className="font-semibold mb-2">
                   {task.time} – {task.name}
                 </div>
@@ -538,6 +628,174 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
             </div>
         </div>
       )}
+
+      {autoAssignFormOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+          <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[80vh] overflow-y-auto p-4">
+
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-semibold text-base-content/90">Auto Assign Tasks</h4>
+              <button onClick={() => setAutoAssignFormOpen(false)} className="btn btn-xs btn-circle">
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAutoAssignSubmit} className="space-y-4">
+
+              {/* Begin Date */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Begin Date</label>
+                <input
+                  type="date"
+                  value={autoAssignData.begin}
+                  onChange={(e) =>
+                    setAutoAssignData({ ...autoAssignData, begin: e.target.value })
+                  }
+                  required
+                  className="input input-bordered input-sm w-full"
+                />
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-sm font-medium mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={autoAssignData.end}
+                  onChange={(e) =>
+                    setAutoAssignData({ ...autoAssignData, end: e.target.value })
+                  }
+                  required
+                  className="input input-bordered input-sm w-full"
+                />
+              </div>
+
+              {/* includeAdmin toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={autoAssignData.includeAdmin}
+                  onChange={(e) =>
+                    setAutoAssignData({
+                      ...autoAssignData,
+                      includeAdmin: e.target.checked,
+                    })
+                  }
+                  className="checkbox checkbox-sm"
+                />
+                <span className="text-sm">Include Admin Users</span>
+              </div>
+
+              {/*----------------------------*/}
+              {/*      TASKS SECTION         */}
+              {/*----------------------------*/}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-base-content/80">Tasks</h3>
+
+                {autoAssignData.tasks.map((task, index) => (
+                  <div
+                    key={index}
+                    className="p-3 border rounded-lg bg-base-200 space-y-3"
+                  >
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-sm">Task #{index + 1}</span>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-error"
+                          onClick={() => {
+                            setAutoAssignData((prev) => ({
+                              ...prev,
+                              tasks: prev.tasks.filter((_, i) => i !== index),
+                            }));
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Name */}
+                    <div>
+                      <label className="block text-sm mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={task.name}
+                        onChange={(e) =>
+                          updateTaskField(index, "name", e.target.value)
+                        }
+                        required
+                        className="input input-bordered input-sm w-full"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm mb-1">Description</label>
+                      <textarea
+                        rows={2}
+                        value={task.description}
+                        onChange={(e) =>
+                          updateTaskField(index, "description", e.target.value)
+                        }
+                        className="textarea textarea-bordered textarea-sm w-full"
+                      />
+                    </div>
+
+                    {/* Penalty */}
+                    <div>
+                      <label className="block text-sm mb-1">Penalty</label>
+                      <input
+                        type="number"
+                        value={task.penalty}
+                        onChange={(e) =>
+                          updateTaskField(index, "penalty", Number(e.target.value))
+                        }
+                        className="input input-bordered input-sm w-full"
+                      />
+                    </div>
+
+                    {/* Frequent */}
+                    <div>
+                      <label className="block text-sm mb-1">Frequent</label>
+                      <select
+                        className="select select-bordered select-sm w-full"
+                        value={task.frequent}
+                        onChange={(e) =>
+                          updateTaskField(index, "frequent", Number(e.target.value))
+                        }
+                      >
+                        <option value={1}>Every day</option>
+                        <option value={7}>Every week (same weekday)</option>
+                      </select>
+                    </div>
+
+                  </div>
+                ))}
+
+                {/* Add Task Button */}
+                <button
+                  type="button"
+                  onClick={addEmptyTask}
+                  className="btn btn-sm btn-outline w-full"
+                >
+                  + Add New Task
+                </button>
+              </div>
+
+              {/* Submit */}
+              <div className="flex justify-end pt-2">
+                <button className="btn btn-primary btn-sm" type="submit">
+                  Auto Assign
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

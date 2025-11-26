@@ -62,7 +62,7 @@ Penalty.belongsTo(Task, { foreignKey: 'taskId' });
 // Đồng bộ tất cả các model với cơ sở dữ liệu
 (async () => {
     try {
-        await sequelize.sync({ alter: true });
+        await sequelize.sync({ alter: false });
         console.log('All models were synchronized successfully.');
     } catch (error) {
         console.error('Unable to synchronize the models with the database:', error);

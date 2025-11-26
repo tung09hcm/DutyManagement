@@ -11,7 +11,9 @@ import {
     submitTaskProof,
     updateTaskStatus,
     getTasksForThreeMonths,
-    getPenalties
+    getPenalties,
+    deleteTask,
+    autoAssign
 } from "../controllers/task.controller.js";
 import upload from '../middleware/upload.js';
 
@@ -54,6 +56,7 @@ router.patch(
     updateTaskStatus
 );  //ok
 
-
+router.delete("/:orgId/tasks/:taskId/deleteTask", protectRoute, verifyOrgMembership, verifyOrgEditorRole, deleteTask);
+router.post("/:orgId/tasks/autoAssign",protectRoute,verifyOrgMembership,verifyOrgEditorRole,autoAssign);
 
 export default router;
