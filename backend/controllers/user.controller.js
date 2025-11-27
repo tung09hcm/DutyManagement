@@ -6,6 +6,7 @@ import Organization from "../model/organization.model.js";
 import UserOrgTask from "../model/userOrgTask.model.js"
 import Task from "../model/task.model.js";
 import cloudinary from "../lib/cloudinary.js";
+import UserTask from "../model/userTask.model.js";
 
 dotenv.config();
 
@@ -113,14 +114,17 @@ export const editAvatarImage = async (req, res) => {
 /**
  * GET /api/user/by-org/:orgId
  */
+
 export const getUsersByOrg = async (req, res) => {
     try {
         const { orgId } = req.params;
+
+        // STEP 1: lấy danh sách User thuộc Organization
         const organization = await Organization.findByPk(orgId, {
             include: [{
                 model: User,
-                attributes: { exclude: ['password'] }, 
-                through: { attributes: ['role'] } 
+                attributes: { exclude: ['password'] },
+                through: { attributes: ['role'] }
             }]
         });
 
@@ -128,11 +132,42 @@ export const getUsersByOrg = async (req, res) => {
             return res.status(404).json({ message: "Organization not found" });
         }
 
-        res.status(200).json(organization.Users);
+        const users = organization.Users;
+        const userIds = users.map(u => u.id);
+
+        // STEP 2: lấy UserTask rồi include Task để lấy status từ Task
+        const userTasks = await UserTask.findAll({
+            where: {
+                userId: { [Op.in]: userIds },
+                organizationId: orgId
+            },
+            include: [
+                {
+                    model: Task,
+                    attributes: ["id", "status"] // status nằm trong Task
+                }
+            ]
+        });
+
+        // STEP 3: tổng hợp số task done/pending cho từng user
+        const result = users.map(user => {
+            const tasksOfUser = userTasks.filter(ut => ut.userId === user.id);
+
+            const done = tasksOfUser.filter(t => t.Task?.status == true).length;
+
+            return {
+                ...user.toJSON(),
+                taskStats: {
+                    done
+                }
+            };
+        });
+
+        return res.status(200).json(result);
 
     } catch (error) {
         console.error("Error fetching users by organization:", error);
-        res.status(500).json({ message: "An internal server error occurred" });
+        return res.status(500).json({ message: "An internal server error occurred" });
     }
 };
 

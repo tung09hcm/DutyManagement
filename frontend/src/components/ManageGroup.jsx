@@ -117,6 +117,7 @@ const ManageGroup = ({ group, onBack }) => {
             <th>Lastname</th>
             <th>Role</th>
             <th>Action</th>
+            <th>Done Task</th>
           </tr>
         </thead>
         <tbody>
@@ -151,6 +152,9 @@ const ManageGroup = ({ group, onBack }) => {
                   editUserRole(group.organizationId, u.id)
                 }
                 className="btn btn-xs btn-outline">Promote to collaborator</button>
+              </td>
+              <td>
+                {u.taskStats.done}
               </td>
             </tr>
           ))}

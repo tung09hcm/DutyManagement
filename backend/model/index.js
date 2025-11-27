@@ -45,6 +45,8 @@ Task.belongsTo(Organization, { foreignKey: 'organizationId' });
 // Sequelize sẽ tự động tạo bảng trung gian 'UserTasks'.
 User.belongsToMany(Task, { through: UserTask, foreignKey: 'userId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 Task.belongsToMany(User, { through: UserTask, foreignKey: 'taskId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+UserTask.belongsTo(Task, { foreignKey: "taskId" });
+Task.hasMany(UserTask, { foreignKey: "taskId" });
 Organization.hasMany(Penalty, { foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 Penalty.belongsTo(Organization, { foreignKey: 'organizationId' });
 Organization.hasMany(UserTask, { foreignKey: 'organizationId', onDelete: 'CASCADE', onUpdate: 'CASCADE' });

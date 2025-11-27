@@ -106,5 +106,15 @@ export const useTaskStore = create((set) => ({
       console.error(error);
       toast.error(error.response?.data?.message || "Auto assign tasks failed");
     }
-  }
+  },
+  // fetchUserActivities: async(orgId) => {
+  //   try{
+  //     set({ isLoading: true });
+
+  //     toast.success("Auto assign tasks Successfully");
+  //   }catch(error){
+  //     console.error(error);
+  //     toast.error(error.response?.data?.message || "Auto assign tasks failed");
+  //   }
+  // }
 }));
