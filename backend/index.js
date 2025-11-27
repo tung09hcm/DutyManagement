@@ -26,6 +26,12 @@ app.use("/api/user",userRoutes);
 app.use("/api/org",orgRoutes);
 app.use("/api/tasks",taskRoutes);
 
+app.use(express.static(path.join(__dirname, "/frontend/dist")));
+
+app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
+});
+
 app.listen(PORT, () => {
     console.log("Server is listening in Port: ", PORT);
 })
