@@ -11,7 +11,7 @@ import taskRoutes from "./routes/task.routes.js";
 
 dotenv.config()
 const PORT = process.env.PORT
-
+const __dirname = path.resolve();
 const app = express();
 app.set("trust proxy", 1);
 app.use(express.json());
