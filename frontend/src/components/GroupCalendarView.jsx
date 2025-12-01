@@ -370,7 +370,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
         </div>
       </div>
 
-      { invite_token !== "" (
+      { invite_token !== "" && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
           <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
             {/* Header */}
