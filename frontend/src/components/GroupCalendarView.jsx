@@ -384,8 +384,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                   textarea.select();
                   try {
                     document.execCommand("copy");
-                    toast.success("Copied invite link to clipboard! - FALLBACK");
-                    toast.success(res.inviteToken);
+                    toast.success(res.inviteToken, { autoClose: 15000 });
                   } catch (err) {
                     console.log(err);
                     toast.error(message);
