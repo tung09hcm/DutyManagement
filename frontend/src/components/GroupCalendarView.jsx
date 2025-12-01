@@ -49,6 +49,20 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
       ],
     }));
   };
+  function fallbackCopyToClipboard(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      toast.success("Copied invite link to clipboard! - FALLBACK");
+    } catch (err) {
+      console.log(err);
+      toast.info("Invite token created, please copy manually. - FALLBACK");
+    }
+    document.body.removeChild(textarea);
+  }
 
   // Update field trong tasks[index]
   const updateTaskField = (index, field, value) => {
@@ -348,8 +362,8 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
           <button 
             onClick={
               async () => {
+                const res = await createInviteToken(group.organizationId);
                 try {
-                  const res = await createInviteToken(group.organizationId);
                   if (res?.inviteToken) {
                     // Clipboard phải được gọi trực tiếp từ click
                     await navigator.clipboard.writeText(res.inviteToken);
@@ -363,7 +377,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                     error?.response?.data?.message ||
                     error?.message ||
                     "Something went wrong!";
-
+                  fallbackCopyToClipboard(res.inviteToken);
                   toast.error(message);
                 }
               }
