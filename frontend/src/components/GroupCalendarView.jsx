@@ -49,20 +49,20 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
       ],
     }));
   };
-  function fallbackCopyToClipboard(text) {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand("copy");
-      toast.success("Copied invite link to clipboard! - FALLBACK");
-    } catch (err) {
-      console.log(err);
-      toast.info("Invite token created, please copy manually. - FALLBACK");
-    }
-    document.body.removeChild(textarea);
-  }
+  // function fallbackCopyToClipboard(text) {
+  //   const textarea = document.createElement("textarea");
+  //   textarea.value = text;
+  //   document.body.appendChild(textarea);
+  //   textarea.select();
+  //   try {
+  //     document.execCommand("copy");
+  //     toast.success("Copied invite link to clipboard! - FALLBACK");
+  //   } catch (err) {
+  //     console.log(err);
+  //     toast.info("Invite token created, please copy manually. - FALLBACK");
+  //   }
+  //   document.body.removeChild(textarea);
+  // }
 
   // Update field trong tasks[index]
   const updateTaskField = (index, field, value) => {
@@ -377,8 +377,23 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                     error?.response?.data?.message ||
                     error?.message ||
                     "Something went wrong!";
-                  fallbackCopyToClipboard(res.inviteToken);
-                  toast.error(message);
+
+                  const textarea = document.createElement("textarea");
+                  textarea.value = res.inviteToken;
+                  document.body.appendChild(textarea);
+                  textarea.select();
+                  try {
+                    document.execCommand("copy");
+                    toast.success("Copied invite link to clipboard! - FALLBACK");
+                    toast.success(res.inviteToken);
+                  } catch (err) {
+                    console.log(err);
+                    toast.error(message);
+                    toast.info("Invite token created, please copy manually. - FALLBACK");
+                  }
+                  document.body.removeChild(textarea);
+
+                  
                 }
               }
             }
