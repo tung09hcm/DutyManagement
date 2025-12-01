@@ -91,7 +91,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
       }
     } catch (error) {
       console.error("Error creating invite token:", error);
-      toast.error("Failed to create invite token!");
+      toast.error(error);
     }
   }
   const handleSubmitEvidence = async (orgId, task_id, task) => {
