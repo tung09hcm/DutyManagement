@@ -77,28 +77,28 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
     deadline: "",
     assigneeIds: []
   });
-  const handleCreateInviteToken = async(orgId) => {
-    try {
-      const res = await createInviteToken(orgId);
+  // const handleCreateInviteToken = async(orgId) => {
+  //   try {
+  //     const res = await createInviteToken(orgId);
 
-      if (res?.inviteToken) {
-        // Copy token vào clipboard
-        await navigator.clipboard.writeText(res.inviteToken);
+  //     if (res?.inviteToken) {
+  //       // Copy token vào clipboard
+  //       await navigator.clipboard.writeText(res.inviteToken);
 
-        toast.success("Copied invite link to clipboard!");
-      } else {
-        toast.error("No invite token returned!");
-      }
-    } catch (error) {
-      console.error("Error creating invite token:", error);
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Something went wrong!";
+  //       toast.success("Copied invite link to clipboard!");
+  //     } else {
+  //       toast.error("No invite token returned!");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error creating invite token:", error);
+  //     const message =
+  //       error?.response?.data?.message ||
+  //       error?.message ||
+  //       "Something went wrong!";
 
-      toast.error(message);
-    }
-  }
+  //     toast.error(message);
+  //   }
+  // }
   const handleSubmitEvidence = async (orgId, task_id, task) => {
     if (!file) return toast.error("Please choose an image!");
     
@@ -346,7 +346,28 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
             )
           }
           <button 
-            onClick={() => handleCreateInviteToken(group.organizationId)}
+            onClick={
+              async () => {
+                try {
+                  const res = await createInviteToken(group.organizationId);
+                  if (res?.inviteToken) {
+                    // Clipboard phải được gọi trực tiếp từ click
+                    await navigator.clipboard.writeText(res.inviteToken);
+                    toast.success("Copied invite link to clipboard!");
+                  } else {
+                    toast.error("No invite token returned!");
+                  }
+                } catch (error) {
+                  console.error("Error creating invite token:", error);
+                  const message =
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    "Something went wrong!";
+
+                  toast.error(message);
+                }
+              }
+            }
             className="cursor-pointer flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2">
             Create Invite Link
           </button>
