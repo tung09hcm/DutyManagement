@@ -341,6 +341,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                   }
                 } catch (error) {
                   console.error("Error creating invite token:", error);
+                  setInviteToken(res.inviteToken);
                   const message =
                     error?.response?.data?.message ||
                     error?.message ||
