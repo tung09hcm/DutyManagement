@@ -77,53 +77,20 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
     deadline: "",
     assigneeIds: []
   });
-  const handleCreateInviteToken = async (orgId) => {
+  const handleCreateInviteToken = async(orgId) => {
     try {
       const res = await createInviteToken(orgId);
 
-      if (!res?.inviteToken) {
-        toast.error("No invite token returned!");
-        return;
-      }
+      if (res?.inviteToken) {
+        // Copy token vào clipboard
+        await navigator.clipboard.writeText(res.inviteToken);
 
-      const token = res.inviteToken;
-
-      // ---- TRY MODERN CLIPBOARD API ----
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(token);
-          toast.success("Copied invite link to clipboard!");
-          return;
-        }
-      } catch (clipboardErr) {
-        console.warn("Clipboard API failed, trying fallback...", clipboardErr);
-      }
-
-      // ---- FALLBACK FOR iOS / SAFARI ----
-      const textarea = document.createElement("textarea");
-      textarea.value = token;
-
-      // Bắt buộc style ẩn để Safari cho phép append
-      textarea.style.position = "fixed";
-      textarea.style.left = "-999px";
-      textarea.style.opacity = "0";
-
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-
-      const successful = document.execCommand("copy");
-      document.body.removeChild(textarea);
-
-      if (successful) {
         toast.success("Copied invite link to clipboard!");
       } else {
-        throw new Error("Fallback copy failed");
+        toast.error("No invite token returned!");
       }
-
     } catch (error) {
       console.error("Error creating invite token:", error);
-
       const message =
         error?.response?.data?.message ||
         error?.message ||
@@ -131,8 +98,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
 
       toast.error(message);
     }
-  };
-
+  }
   const handleSubmitEvidence = async (orgId, task_id, task) => {
     if (!file) return toast.error("Please choose an image!");
     
