@@ -31,6 +31,8 @@ const generateMonthDays = (year, month) => {
 };
 
 const GroupCalendarView = ({ group, onBack, manageUser  }) => {
+  const [invite_token, setInviteToken] = useState("");
+
   // Thêm 1 task trống
   const addEmptyTask = () => {
     setAutoAssignData((prev) => ({
@@ -49,20 +51,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
       ],
     }));
   };
-  // function fallbackCopyToClipboard(text) {
-  //   const textarea = document.createElement("textarea");
-  //   textarea.value = text;
-  //   document.body.appendChild(textarea);
-  //   textarea.select();
-  //   try {
-  //     document.execCommand("copy");
-  //     toast.success("Copied invite link to clipboard! - FALLBACK");
-  //   } catch (err) {
-  //     console.log(err);
-  //     toast.info("Invite token created, please copy manually. - FALLBACK");
-  //   }
-  //   document.body.removeChild(textarea);
-  // }
+
 
   // Update field trong tasks[index]
   const updateTaskField = (index, field, value) => {
@@ -91,28 +80,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
     deadline: "",
     assigneeIds: []
   });
-  // const handleCreateInviteToken = async(orgId) => {
-  //   try {
-  //     const res = await createInviteToken(orgId);
 
-  //     if (res?.inviteToken) {
-  //       // Copy token vào clipboard
-  //       await navigator.clipboard.writeText(res.inviteToken);
-
-  //       toast.success("Copied invite link to clipboard!");
-  //     } else {
-  //       toast.error("No invite token returned!");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error creating invite token:", error);
-  //     const message =
-  //       error?.response?.data?.message ||
-  //       error?.message ||
-  //       "Something went wrong!";
-
-  //     toast.error(message);
-  //   }
-  // }
   const handleSubmitEvidence = async (orgId, task_id, task) => {
     if (!file) return toast.error("Please choose an image!");
     
@@ -384,7 +352,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                   textarea.select();
                   try {
                     document.execCommand("copy");
-                    toast.success(res.inviteToken, { autoClose: 15000 });
+                    setInviteToken(res.inviteToken);
                   } catch (err) {
                     console.log(err);
                     toast.error(message);
@@ -402,6 +370,27 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
         </div>
       </div>
 
+      { invite_token !== "" (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+          <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-semibold text-base-content/90">
+                Tasks – {selectedDay.date.toDateString()}
+              </h4>
+              <button onClick={() => setInviteToken("")} className="btn btn-xs btn-circle">
+                <X size={14} />
+              </button>
+            </div>
+            <div>
+              {invite_token}
+            </div>
+          </div>
+        </div>
+
+      ) 
+
+      }
 
       {/* Popup Tasks*/}
       {selectedDay && (
