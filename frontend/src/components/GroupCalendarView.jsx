@@ -172,16 +172,26 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
 
   useEffect(() => {
     if (group?.Organization?.id) {
-      fetchTasks(group.Organization.id);
+      const loadTasks = async () => {
+        if (group?.Organization?.id) {
+          await fetchTasks(group.Organization.id);
+        }
+      };
+
+      loadTasks();
     }
   }, [group]);
 
   useEffect(
     () => {
-      if (group?.Organization?.id) {
-        fetchUsers(group.Organization.id);
-      }
-    }, []
+      const loadTasks = async () => {
+        if (group?.Organization?.id) {
+          await fetchUsers(group.Organization.id);
+        }
+      };
+
+      loadTasks();
+    }, [group]
   );
 
   const calendar = useMemo(() => generateMonthDays(viewDate.getFullYear(), viewDate.getMonth()), [viewDate]);
@@ -559,7 +569,7 @@ const GroupCalendarView = ({ group, onBack, manageUser  }) => {
                   setSelectedDay(null);
                   setAddTaskForm(selectedDay);
                 }} 
-                  className="ml-auto px-3 py-1 border border-white text-white bg-transparent rounded-lg hover:bg-white/10 transition-colors"
+                  className="ml-auto px-3 py-1 border border-green text-green bg-transparent rounded-lg hover:bg-white/10 transition-colors"
                 >Add Task</button>
               ) : (
                 <div></div>

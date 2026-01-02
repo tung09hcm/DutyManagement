@@ -24,7 +24,7 @@ router.post("/join", protectRoute, joinOrganization);                           
 // --- Các route sau đây yêu cầu quyền ADMIN của tổ chức ---
 
 // Tạo link mời
-router.post("/:orgId/invite", protectRoute, verifyAdminRole, generateInviteLink);           //ok
+router.post("/:orgId/invite", protectRoute, generateInviteLink);           //ok
 
 // Sửa vai trò của thành viên
 router.put("/:orgId/members/:userId/role", protectRoute, verifyAdminRole, editUserRole);    //ok
