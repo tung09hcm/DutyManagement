@@ -1,332 +1,416 @@
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useGroupStore } from "../store/useGroupStore";
-import { BrushCleaning, LogOut, User, ArrowLeft,Pencil, X  } from "lucide-react";
+import {
+  LogOut,
+  User,
+  X,
+  Pencil,
+  BrushCleaning,
+  ChevronRight,
+  ArrowLeft,
+  Menu,
+} from "lucide-react";
 import GroupCalendarView from "../components/GroupCalendarView";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import ManageGroup from "../components/ManageGroup";
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const SkeletonGroup = () => (
+  <div className="flex items-center gap-3 p-3 animate-pulse">
+    <div className="w-10 h-10 rounded-full bg-base-300 flex-shrink-0" />
+    <div className="flex-1 space-y-1.5">
+      <div className="h-3 bg-base-300 rounded w-2/3" />
+      <div className="h-2 bg-base-300 rounded w-1/2" />
+    </div>
+  </div>
+);
+
+// ─── Docs Page ────────────────────────────────────────────────────────────────
+const DocsPage = ({ onBack }) => (
+  <div className="min-h-screen bg-base-100 p-4 md:p-8">
+    <button
+      onClick={onBack}
+      className="btn btn-sm btn-ghost rounded-xl mb-6 flex items-center gap-2"
+    >
+      <ArrowLeft size={16} /> Back
+    </button>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
+          <BrushCleaning size={28} className="text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold text-primary">CleanUp Guide 🌿</h1>
+        <p className="text-base-content/60 mt-2">Everything you need to know</p>
+      </div>
+
+      {[
+        {
+          title: "1. Getting Started",
+          content:
+            "CleanUp helps you manage cleaning groups, assign duties, and track schedules visually. Create a group or join one with an invite code.",
+        },
+        {
+          title: "2. Managing Groups",
+          content:
+            "Select a group from the sidebar to open its calendar. Admins can create tasks, auto-assign duties, and manage members.",
+        },
+        {
+          title: "3. The Calendar",
+          content:
+            "Each cell represents a day. Tap a day to see tasks, upload proof of completion, or apply penalties for missed duties.",
+        },
+        {
+          title: "4. Rankings",
+          content:
+            "Inside Group Info → Leaderboard tab you can see who completed the most tasks. Keep up the good work! 🏆",
+        },
+        {
+          title: "5. Tips 🌱",
+          content:
+            "Use the Auto Assignment feature to automatically distribute recurring tasks across all members. Share invite links to grow your group.",
+        },
+      ].map((section) => (
+        <div key={section.title} className="bg-base-200/50 rounded-2xl p-5">
+          <h2 className="font-bold mb-2">{section.title}</h2>
+          <p className="text-base-content/70 text-sm leading-relaxed">
+            {section.content}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const HomePage = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [manageUser, setManageUser] = useState(null);
   const [showDocs, setShowDocs] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showJoinGroup, setShowJoinGroup] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
+  const [inviteCode, setInviteCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+  const [formData, setFormData] = useState({ name: "", description: "" });
+
   const { logout, authUser } = useAuthStore();
   const navigate = useNavigate();
   const { groups, fetchGroups, createGroup, joinOrg } = useGroupStore();
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+
+  useEffect(() => {
+    if (authUser?.id) {
+      setIsLoadingGroups(true);
+      fetchGroups(authUser.id).finally(() => setIsLoadingGroups(false));
+    }
+  }, [authUser]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error("Group name is required");
-      return;
-    }
+    if (!formData.name.trim()) return toast.error("Group name is required");
     setIsSubmitting(true);
     try {
       await createGroup(formData);
-      await fetchGroups(); // reload danh sách nhóm
-      setShowCreateForm(false); // đóng modal
+      await fetchGroups();
+      setShowCreateForm(false);
     } finally {
       setFormData({ name: "", description: "" });
       setIsSubmitting(false);
     }
   };
-  useEffect(() => {
-    if (authUser?.id) fetchGroups(authUser.id);
-  }, [authUser]);
-  const [showJoinGroup, setShowJoinGroup] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  if (showDocs) {
-    return (
-      <div className="min-h-screen bg-base-200 p-8">
-        <button
-          onClick={() => setShowDocs(false)}
-          className="btn btn-sm btn-outline mb-4 flex items-center gap-2"
-        >
-          <ArrowLeft className="size-4" /> Back
-        </button>
 
-        <div className="max-w-3xl mx-auto bg-base-100 p-8 rounded-2xl shadow space-y-6">
-          <h1 className="text-3xl font-bold text-primary mb-4 text-center">
-            Hướng dẫn sử dụng CleanUp App 🌿
-          </h1>
+  const handleSelectGroup = (group) => {
+    setSelectedGroup(group);
+    setManageUser(null);
+    setSidebarOpen(false);
+  };
 
-          <section>
-            <h2 className="text-xl font-semibold mb-2">1. Giới thiệu</h2>
-            <p className="text-base-content/80">
-              <b>CleanUp</b> giúp bạn quản lý các nhóm trực nhật, phân công nhiệm vụ
-              và theo dõi lịch dọn dẹp một cách trực quan. Mỗi nhóm có thể gồm nhiều
-              thành viên với vai trò khác nhau.
-            </p>
-          </section>
+  if (showDocs) return <DocsPage onBack={() => setShowDocs(false)} />;
 
-          <section>
-            <h2 className="text-xl font-semibold mb-2">2. Tạo và quản lý nhóm</h2>
-            <ul className="list-disc list-inside text-base-content/80 space-y-1">
-              <li>Chọn tab <b>Your Groups</b> để xem các nhóm bạn tạo.</li>
-              <li>Nhấn vào tên nhóm để mở lịch và xem nhiệm vụ.</li>
-              <li>Thành viên khác có thể tham gia nhóm bằng mã mời (sắp ra mắt).</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold mb-2">3. Lịch dọn dẹp</h2>
-            <ul className="list-disc list-inside text-base-content/80 space-y-1">
-              <li>Mỗi ô trên lịch là một ngày, hiển thị các nhiệm vụ cần làm.</li>
-              <li>Nếu trong ngày có nhiều nhiệm vụ, bạn có thể cuộn trong ô đó để xem thêm.</li>
-              <li>Click vào một nhiệm vụ để xem chi tiết hoặc chỉnh sửa.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold mb-2">4. Tài khoản và hồ sơ</h2>
-            <ul className="list-disc list-inside text-base-content/80 space-y-1">
-              <li>Nhấn <b>Profile</b> ở thanh bên trái để xem thông tin cá nhân.</li>
-              <li>Dùng nút <b>Logout</b> để đăng xuất an toàn.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold mb-2">5. Mẹo nhỏ 🌱</h2>
-            <ul className="list-disc list-inside text-base-content/80 space-y-1">
-              <li>Dùng màu sắc và icon nhóm để dễ phân biệt.</li>
-              <li>Thường xuyên kiểm tra lịch để không bỏ sót nhiệm vụ.</li>
-              <li>Cập nhật app để nhận thêm tính năng mới.</li>
-            </ul>
-          </section>
-
-          <div className="text-center pt-4">
-            <p className="text-base-content/70">Chúc bạn giữ mọi thứ luôn sạch sẽ! ✨</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Giao diện mặc định
   return (
-    <div className="min-h-screen grid grid-cols-6 bg-base-200">
-      {/* Sidebar */}
-      <div className="col-span-1 border-r border-base-300 flex flex-col">
-        <div className="flex justify-around items-center p-3 bg-base-200">
-            <button onClick = {() => {setShowCreateForm(true)}}className="cursor-pointer btn btn-primary">
-              <Pencil className="w-5 h-5" />
-              Create Your Group
-            </button>
-        </div>
+    <div className="min-h-screen flex bg-base-200">
+      {/* ── Mobile Sidebar Backdrop ────────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Group list */}
-        <div className="flex-1 overflow-y-auto">
-          {groups.map((group) => (
-            <div
-              key={group.id}
-              onClick={() => {
-                setSelectedGroup(group);
-                setManageUser(false);
-              }}
-              className={`flex items-center gap-3 p-3 hover:bg-base-300 cursor-pointer transition-colors ${
-                selectedGroup?.id === group.id ? "bg-primary/10" : ""
-              }`}
-            >
-              <img
-                src={group.Organization.avatarLink}
-                alt={group.Organization.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-              <div>
-                <h3 className="text-sm font-semibold">{group.Organization.name}</h3>
-                <p className="text-xs text-base-content/70">{group.Organization.description}</p>
-              </div>
+      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+      <aside
+        className={`fixed md:relative z-40 md:z-auto h-full w-72 md:w-64 bg-base-100 border-r border-base-200 flex flex-col transition-transform duration-300 md:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-base-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <BrushCleaning size={16} className="text-primary" />
             </div>
-          ))}
+            <span className="font-bold text-sm">CleanUp</span>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-sm btn-primary rounded-xl gap-1 text-xs"
+          >
+            <Pencil size={12} /> New Group
+          </button>
         </div>
 
-        <div className="p-4 bg-base-200">
+        {/* Groups list */}
+        <div className="flex-1 overflow-y-auto py-2">
+          <p className="px-4 py-1 text-xs font-semibold text-base-content/40 uppercase tracking-wider">
+            Your Groups
+          </p>
+
+          {isLoadingGroups ? (
+            Array.from({ length: 4 }).map((_, i) => <SkeletonGroup key={i} />)
+          ) : groups.length === 0 ? (
+            <p className="text-xs text-center text-base-content/40 py-8 italic">
+              No groups yet
+            </p>
+          ) : (
+            groups.map((group) => (
+              <div
+                key={group.id}
+                onClick={() => handleSelectGroup(group)}
+                className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all ${
+                  selectedGroup?.id === group.id && !manageUser
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-base-200"
+                }`}
+              >
+                <img
+                  src={group.Organization.avatarLink}
+                  alt={group.Organization.name}
+                  className="w-9 h-9 rounded-xl object-cover flex-shrink-0 border border-base-200"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">
+                    {group.Organization.name}
+                  </p>
+                  <p className="text-[11px] text-base-content/50 truncate">
+                    {group.Organization.description}
+                  </p>
+                </div>
+                {selectedGroup?.id === group.id && (
+                  <ChevronRight
+                    size={14}
+                    className="text-primary flex-shrink-0"
+                  />
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-3 border-t border-base-200 space-y-1">
           <button
             onClick={() => navigate("/profile")}
-            className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors mb-2"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl hover:bg-base-200 transition-colors text-sm"
           >
-            <User className="size-5" />
-            <span className="hidden sm:inline">Profile</span>
+            <User size={15} className="flex-shrink-0" />
+            <span className="truncate">{authUser?.email || "Profile"}</span>
           </button>
           <button
             onClick={logout}
-            className="flex gap-2 items-center w-full justify-center py-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl hover:bg-error/10 text-error transition-colors text-sm"
           >
-            <LogOut className="size-5" />
-            <span className="hidden sm:inline">Logout</span>
+            <LogOut size={15} />
+            <span>Logout</span>
           </button>
-          {authUser && (
-            <p className="text-xs text-center text-base-content/50 mt-1">
-              Logged in as <span className="font-medium">{authUser.email}</span>
-            </p>
-          )}
         </div>
-      </div>
+      </aside>
 
-      {/* Main content */}
-      {selectedGroup && (!manageUser) ? (
-        <GroupCalendarView
-          group={selectedGroup}
-          onBack={() => {
-            setSelectedGroup(null);
-            setManageUser(false);
-          }}
-          manageUser={() => {
-            // setSelectedGroup(null);
-            setManageUser(selectedGroup);
-          }}
-        />
-      ) : null}
+      {/* ── Main Content ──────────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Mobile top bar */}
+        <div className="md:hidden flex items-center gap-2 p-3 bg-base-100 border-b border-base-200 sticky top-0 z-20">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="btn btn-sm btn-ghost rounded-xl"
+          >
+            <Menu size={18} />
+          </button>
+          <span className="font-semibold text-sm flex-1 truncate">
+            {selectedGroup ? selectedGroup.Organization?.name : "CleanUp"}
+          </span>
+        </div>
 
-      {/* Create Group Form */}
-      { showCreateForm ? (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
-          <div className="bg-base-100 rounded-lg shadow-lg w-240 max-h-[70vh] overflow-y-auto p-4">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-base-content">
-                Create Your Group
-              </h2>
-              <button onClick={() => setShowCreateForm(false)} className="btn btn-xs btn-circle">
+        {/* Content area */}
+        {selectedGroup && !manageUser ? (
+          <div className="flex-1 flex flex-col">
+            <GroupCalendarView
+              group={selectedGroup}
+              onBack={() => {
+                setSelectedGroup(null);
+                setManageUser(null);
+              }}
+              manageUser={() => setManageUser(selectedGroup)}
+            />
+          </div>
+        ) : manageUser ? (
+          <div className="flex-1 flex flex-col">
+            <ManageGroup
+              group={manageUser}
+              onBack={() => {
+                setSelectedGroup(manageUser);
+                setManageUser(null);
+              }}
+            />
+          </div>
+        ) : (
+          // Welcome screen
+          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-base-100 to-base-200 p-6 text-center">
+            <div className="max-w-md space-y-5">
+              <div className="flex justify-center">
+                <div className="p-5 bg-primary/15 rounded-3xl">
+                  <BrushCleaning size={40} className="text-primary" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2">
+                  Welcome to CleanUp 🌿
+                </h1>
+                <p className="text-base-content/60 text-sm leading-relaxed">
+                  Manage cleaning tasks, assign duties, and keep everything
+                  spotless together.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                {!showJoinGroup ? (
+                  <>
+                    <button
+                      onClick={() => setShowJoinGroup(true)}
+                      className="btn btn-primary rounded-xl px-6"
+                    >
+                      Join a Group
+                    </button>
+                    <button
+                      onClick={() => setShowDocs(true)}
+                      className="btn btn-ghost rounded-xl"
+                    >
+                      Learn More
+                    </button>
+                  </>
+                ) : (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      try {
+                        await joinOrg(inviteCode);
+                        toast.success("Joined group successfully!");
+                        await fetchGroups(authUser.id);
+                        setShowJoinGroup(false);
+                        setInviteCode("");
+                      } catch (err) {
+                        toast.error(
+                          err.response?.data?.message || "Failed to join group",
+                        );
+                      }
+                    }}
+                    className="flex flex-col sm:flex-row gap-3 items-center w-full max-w-sm"
+                  >
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Enter invite code..."
+                      className="input input-bordered rounded-xl w-full h-11 text-sm"
+                      required
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="btn btn-success rounded-xl h-11 px-5 text-sm"
+                      >
+                        Join
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinGroup(false)}
+                        className="btn btn-ghost rounded-xl h-11"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* ── Create Group Modal ─────────────────────────────────────────────── */}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-base-100 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md">
+            <div className="flex justify-between items-center p-4 border-b border-base-200">
+              <h2 className="font-bold">Create New Group</h2>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="btn btn-xs btn-circle btn-ghost"
+              >
                 <X size={14} />
               </button>
             </div>
-            {/* Body */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-base-content/80">
+                <label className="block text-xs font-medium text-base-content/60 mb-1">
                   Group Name
                 </label>
                 <input
                   type="text"
-                  name="name"
                   value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter group name"
-                  className="input input-bordered w-full"
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="My cleaning squad"
+                  className="input input-bordered rounded-xl w-full h-11 text-sm"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium mb-1 text-base-content/80">
+                <label className="block text-xs font-medium text-base-content/60 mb-1">
                   Description
                 </label>
                 <textarea
-                  name="description"
                   value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe your group"
-                  className="textarea textarea-bordered w-full min-h-[100px]"
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="What's this group for?"
+                  className="textarea textarea-bordered rounded-xl w-full text-sm"
+                  rows={3}
                 />
               </div>
-
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateForm(false)}
+                  className="btn btn-ghost rounded-xl btn-sm"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 active:scale-95"
+                  className="btn btn-primary rounded-xl btn-sm px-6"
                 >
                   {isSubmitting ? "Creating..." : "Create Group"}
                 </button>
               </div>
             </form>
           </div>
-        </div> 
-      ) : null
-      }
-
-      {/* Manage User */}
-      { (manageUser) ? (
-        <ManageGroup
-          group={manageUser}
-          onBack={() => {
-            setSelectedGroup(manageUser);
-            setManageUser(false);
-          }}
-        />
-      ): null
-
-      }
-
-      {
-        !selectedGroup && !manageUser ? (
-          <div className="col-span-5 flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 via-base-200 to-base-100 text-center p-6">
-          <div className="max-w-lg space-y-6">
-            <div className="flex justify-center">
-              <div className="p-4 bg-primary/20 rounded-full animate-bounce">
-                <BrushCleaning className="size-10 text-primary" />
-              </div>
-            </div>
-
-            <h1 className="text-4xl font-bold text-primary">
-              Welcome to CleanUp App 🌿
-            </h1>
-            <p className="text-base-content/70">
-              Manage your cleaning tasks, assign duties, and keep everything spotless.
-            </p>
-
-            <div className="flex justify-center gap-4">
-              {
-                !showJoinGroup ?
-                (
-                  <div className="flex justify-center gap-4">
-                    <button onClick = {() => {setShowJoinGroup(true)}}className="btn btn-primary">Get Started</button>
-                    <button
-                      onClick={() => setShowDocs(true)}
-                      className="btn btn-outline"
-                    >
-                      Learn More
-                    </button>
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      try {
-                        await joinOrg(inviteCode); // join thành công
-                        toast.success("Joined group successfully!");
-                        await fetchGroups(authUser.id); // reload danh sách nhóm mới nhất
-                        setShowJoinGroup(false); // đóng form
-                        setInviteCode(""); // clear input
-                      } catch (err) {
-                        toast.error(err.response?.data?.message || "Failed to join group");
-                      }
-                    }}
-                    className="flex flex-col sm:flex-row gap-3 items-center"
-                  >
-                    <input
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder="Enter your invite code..."
-                      className="input input-bordered w-full sm:w-80"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      className="btn btn-success w-full sm:w-auto"
-                    >
-                      Join Group
-                    </button>
-                  </form>
-                )
-              }       
-            </div>
-          </div>
         </div>
-        ):null
-      }
+      )}
     </div>
   );
 };

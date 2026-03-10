@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Users } from "lucide-react";
 
 export default function AssigneeSelect({ users, formData, setFormData }) {
   const [open, setOpen] = useState(false);
@@ -25,25 +25,31 @@ export default function AssigneeSelect({ users, formData, setFormData }) {
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-base-content/70 mb-1">
-        Assign to
+      <label className="block text-sm font-medium text-base-content/70 mb-1 flex items-center gap-1">
+        <Users size={14} /> Assign to
       </label>
 
-      {/* Ô hiển thị user đã chọn */}
       <div
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center flex-wrap gap-2 w-full border border-base-300 rounded-lg px-2 py-1 bg-base-100 cursor-pointer relative"
+        className="flex items-center flex-wrap gap-1.5 min-h-10 w-full border border-base-300 rounded-xl px-3 py-2 bg-base-100 cursor-pointer hover:border-primary/50 transition-colors"
       >
         {formData.assigneeIds.length === 0 && (
-          <span className="text-base-content/50 text-sm">Select users...</span>
+          <span className="text-base-content/40 text-sm">
+            Select members...
+          </span>
         )}
         {formData.assigneeIds.map((id) => {
           const user = users.find((u) => u.id === id);
           return (
             <div
               key={id}
-              className="flex items-center gap-1 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full"
+              className="flex items-center gap-1 bg-primary text-primary-content text-xs px-2 py-1 rounded-full font-medium"
             >
+              <img
+                src={user?.avatarLink}
+                alt={user?.username}
+                className="w-4 h-4 rounded-full object-cover"
+              />
               <span>{user?.name || user?.username}</span>
               <button
                 type="button"
@@ -51,37 +57,43 @@ export default function AssigneeSelect({ users, formData, setFormData }) {
                   e.stopPropagation();
                   removeUser(id);
                 }}
-                className="hover:text-red-300"
+                className="hover:opacity-70 ml-0.5"
               >
-                <X size={12} />
+                <X size={10} />
               </button>
             </div>
           );
         })}
         <ChevronDown
           size={16}
-          className={`ml-auto transition-transform ${
-            open ? "rotate-180" : "rotate-0"
-          }`}
+          className={`ml-auto text-base-content/50 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
       </div>
 
-      {/* Danh sách user khi mở */}
       {open && (
-        <div className="absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-full bg-base-100 border border-base-300 rounded-xl shadow-xl max-h-48 overflow-y-auto">
           {users.map((u) => {
             const selected = formData.assigneeIds.includes(u.id);
             return (
               <div
                 key={u.id}
                 onClick={() => toggleUser(u.id)}
-                className={`flex items-center justify-between px-3 py-1.5 text-sm cursor-pointer hover:bg-base-200 ${
-                  selected ? "text-blue-600 font-medium" : ""
+                className={`flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-base-200 transition-colors ${
+                  selected ? "bg-primary/5" : ""
                 }`}
               >
-                <span>{u.name || u.username}</span>
+                <img
+                  src={u.avatarLink}
+                  alt={u.username}
+                  className="w-7 h-7 rounded-full object-cover border border-base-300"
+                />
+                <span className={selected ? "text-primary font-medium" : ""}>
+                  {u.name || u.username}
+                </span>
                 {selected && (
-                  <span className="text-blue-600 font-semibold text-xs">✓</span>
+                  <span className="ml-auto w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-[10px]">
+                    ✓
+                  </span>
                 )}
               </div>
             );
