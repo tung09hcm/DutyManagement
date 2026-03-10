@@ -3,6 +3,7 @@ import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 import https from "https";
+import axios from "axios";
 import fs from "fs";
 import cookieParser from "cookie-parser";
 import { sequelize } from "./model/index.js";
@@ -35,6 +36,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/tasks", taskRoutes);
+app.get("/api/health", async (req, res) => {
+  try {
+    await sequelize.query("SELECT 1");
+    res.status(200).send("OK");
+  } catch (err) {
+    res.status(500).send("DB error");
+  }
+});
 
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
 
@@ -45,4 +54,15 @@ app.get("*", (req, res) => {
 const httpsServer = https.createServer(credentials, app);
 app.listen(PORT, () => {
   console.log("Server is listening in Port: ", PORT);
+  setInterval(
+    async () => {
+      try {
+        await axios.get(`https://dutymanagement-3.onrender.com/api/health`);
+        console.log("Self ping success");
+      } catch (err) {
+        console.log("Self ping failed");
+      }
+    },
+    1000 * 60 * 5,
+  );
 });

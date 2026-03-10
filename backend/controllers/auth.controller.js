@@ -27,13 +27,13 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "This username already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ 
-      username, 
-      email, 
+    const user = await User.create({
+      username,
+      email,
       password: hashedPassword,
       name: "",
       lastname: "",
-      avatarLink: "https://api.dicebear.com/9.x/avataaars/svg?seed=" + username
+      avatarLink: "https://api.dicebear.com/9.x/avataaars/svg?seed=" + username,
     });
 
     const userObject = user.toJSON();
@@ -52,7 +52,9 @@ export const register = async (req, res) => {
 
     // Gửi refreshTokenId trong cookie
     setTokenCookies(res, accessToken, refreshToken, tokenRecord.id);
-    res.status(201).json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
+    res
+      .status(201)
+      .json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
   } catch (error) {
     console.error("Error in register controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -90,7 +92,9 @@ export const login = async (req, res) => {
     delete userObject.password;
     delete userObject.id;
 
-    res.status(200).json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
+    res
+      .status(200)
+      .json({ user: userObject, accessToken, refreshTokenId: tokenRecord.id });
   } catch (error) {
     console.error("Error in login controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -124,7 +128,9 @@ export const refresh = async (req, res) => {
       process.env.JWT_REFRESH_SECRET,
       async (err, decoded) => {
         if (err)
-          return res.status(403).json({ message: "Expired or invalid refresh token" });
+          return res
+            .status(403)
+            .json({ message: "Expired or invalid refresh token" });
 
         const user = await User.findByPk(decoded.userId);
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -132,7 +138,7 @@ export const refresh = async (req, res) => {
         const newAccessToken = generateAccessToken(user);
         setTokenCookies(res, newAccessToken, refreshToken, tokenRecord.id);
         res.status(200).json({ message: "Refresh Token Complete" });
-      }
+      },
     );
   } catch (error) {
     console.error("Error in refresh controller:", error.message);
@@ -163,11 +169,11 @@ export const logout = async (req, res) => {
   }
 };
 
-export const checkAuth = async (req,res) => {
+export const checkAuth = async (req, res) => {
   try {
     return res.status(200).json(req.user);
   } catch (error) {
     console.log("Error in checkAuth controller: ", error.message);
-    return res.status(500).json({message: "Internal server error"});
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
