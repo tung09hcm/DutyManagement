@@ -144,7 +144,8 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
     const map = {};
     tasks.forEach((t) => {
       const date = new Date(t.date);
-      const key = date.toLocaleDateString("en-CA");
+      // Dùng UTC year/month/date thay vì local
+      const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
       if (!map[key]) map[key] = [];
       map[key].push(t);
     });
