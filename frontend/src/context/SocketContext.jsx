@@ -1,23 +1,24 @@
+// src/context/SocketContext.jsx
 import { createContext, useContext, useEffect } from "react";
 import socket from "../socket/socket";
-import { useSelector } from "react-redux"; // hoặc context auth của bạn
+import { useAuthStore } from "../store/useAuthStore"; // ✅ dùng store thực tế của bạn
 
 const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
-  const currentUser = useSelector((state) => state.auth.user); // chỉnh theo store của bạn
+  const { authUser } = useAuthStore(); // ✅ chỉnh tên theo store của bạn
 
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (!authUser?.id) return;
 
-    // ✅ Connect và đăng ký userId
     socket.connect();
-    socket.emit("register", currentUser.id);
+    socket.emit("register", authUser.id);
+    console.log("Socket registered for user:", authUser.id); // debug
 
     return () => {
-      socket.disconnect(); // Logout hoặc unmount thì ngắt
+      socket.disconnect();
     };
-  }, [currentUser?.id]);
+  }, [authUser?.id]);
 
   return (
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>

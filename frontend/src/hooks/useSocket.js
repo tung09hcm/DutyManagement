@@ -1,6 +1,7 @@
+// src/hooks/useSocket.js
 import { useEffect } from "react";
 import { useSocket } from "../context/SocketContext";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast"; // ✅ sửa lại
 
 export const useTaskNotification = () => {
   const socket = useSocket();
@@ -8,12 +9,15 @@ export const useTaskNotification = () => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("new_task", (task) => {
-      console.log("Task mới:", task);
-      toast.info(task.message);
-      // dispatch thêm vào store nếu cần
-    });
+    const handler = (task) => {
+      console.log("Task mới nhận được:", task); // debug
+      toast.success(task.message, {
+        duration: 5000,
+        icon: "📋",
+      });
+    };
 
-    return () => socket.off("new_task");
+    socket.on("new_task", handler);
+    return () => socket.off("new_task", handler);
   }, [socket]);
 };
