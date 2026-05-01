@@ -44,7 +44,7 @@ const SkeletonMember = () => (
 );
 
 // ─── Task Status Badge ────────────────────────────────────────────────────────
-const TaskStatusBadge = ({ task, selectedDate }) => {
+const TaskStatusBadge = ({ task }) => {
   const isLate =
     new Date(task.date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0);
   if (isLate && !task.status)
@@ -71,7 +71,9 @@ const TaskStatusBadge = ({ task, selectedDate }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const GroupCalendarView = ({ group, onBack, manageUser }) => {
-  useTaskNotification();
+  // ✅ Nhận socket notification, task mới sẽ tự động vào store với flag isNew
+  useTaskNotification(group?.Organization?.id);
+
   const [invite_token, setInviteToken] = useState("");
   const today = new Date();
   const [viewDate, setViewDate] = useState(today);
@@ -80,6 +82,12 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
   const [addTaskForm, setAddTaskForm] = useState(null);
   const [file, setFile] = useState(null);
   const [showMembers, setShowMembers] = useState(false);
+
+  // ✅ Loading state riêng cho từng action
+  const [loadingStates, setLoadingStates] = useState({});
+  const setLoading = (key, val) =>
+    setLoadingStates((prev) => ({ ...prev, [key]: val }));
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -117,13 +125,11 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
   } = useTaskStore();
   const { createInviteToken } = useGroupStore();
 
-  // ── FIX: clear stale data & refetch when group changes ──────────────────────
   useEffect(() => {
     if (!group?.Organization?.id) return;
     const orgId = group.Organization.id;
     fetchTasks(orgId);
     fetchUsers(orgId);
-    // Reset local UI state on group switch
     setSelectedDay(null);
     setAddTaskForm(null);
     setFile(null);
@@ -154,17 +160,24 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
     year: "numeric",
   });
 
+  // ─── Handlers với loading state ───────────────────────────────────────────
   const handleSubmitEvidence = async (orgId, task_id, task) => {
     if (!file) return toast.error("Please choose an image!");
-    const res = await submitTaskProof(orgId, task_id, file);
-    await fetchTasks(group.Organization.id);
-    setFile(null);
-    task.proof = res.proof;
-    task.status = true;
+    setLoading(`proof_${task_id}`, true);
+    try {
+      const res = await submitTaskProof(orgId, task_id, file);
+      await fetchTasks(group.Organization.id);
+      setFile(null);
+      task.proof = res?.proof;
+      task.status = true;
+    } finally {
+      setLoading(`proof_${task_id}`, false);
+    }
   };
 
   const handleAutoAssignSubmit = async (e) => {
     e.preventDefault();
+    setLoading("autoAssign", true);
     try {
       await autoAssign(group.organizationId, autoAssignData);
       setAutoAssignData({
@@ -188,11 +201,14 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
       await fetchTasks(group.Organization.id);
     } catch (err) {
       console.error("Auto assign failed:", err);
+    } finally {
+      setLoading("autoAssign", false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading("addTask", true);
     try {
       await addTask(formData, group.organizationId);
       await fetchTasks(group.Organization.id);
@@ -207,6 +223,8 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
       });
     } catch (err) {
       console.error("Add task failed:", err);
+    } finally {
+      setLoading("addTask", false);
     }
   };
 
@@ -217,11 +235,27 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
     taskPenalty,
     task,
   ) => {
+    setLoading(`penalty_${taskId}`, true);
     try {
       task.penalty_status = 1;
       await applyPenalty(orgId, taskId, userIds, taskPenalty);
     } catch (error) {
       console.error("Apply penalty failed:", error);
+    } finally {
+      setLoading(`penalty_${taskId}`, false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    setLoading(`delete_${taskId}`, true);
+    try {
+      await deleteTask(group.organizationId, taskId);
+      setSelectedDay((prev) => ({
+        ...prev,
+        tasks: prev.tasks.filter((t) => t.id !== taskId),
+      }));
+    } finally {
+      setLoading(`delete_${taskId}`, false);
     }
   };
 
@@ -282,7 +316,6 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
             {monthName}
           </h2>
           <div className="flex items-center gap-1">
-            {/* Mobile: members toggle */}
             <button
               onClick={() => setShowMembers(true)}
               className="btn btn-sm btn-ghost rounded-xl md:hidden"
@@ -321,14 +354,25 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                 const key = `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, "0")}-${String(day.date.getDate()).padStart(2, "0")}`;
                 const dayTasks = tasksByDate[key] || [];
                 const isToday = key === today.toLocaleDateString("en-CA");
+                // ✅ Cell highlight vàng nếu có task mới trong ngày
+                const hasNewTask = dayTasks.some((t) => t.isNew);
+
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedDay({ ...day, tasks: dayTasks })}
-                    className={`border border-base-300 h-20 md:h-32 relative p-0.5 md:p-1 flex flex-col cursor-pointer hover:bg-base-200/50 transition-colors ${
-                      !day.isCurrentMonth ? "opacity-40" : ""
-                    } ${isToday ? "bg-primary/5" : ""}`}
+                    className={`border border-base-300 h-20 md:h-32 relative p-0.5 md:p-1 flex flex-col cursor-pointer hover:bg-base-200/50 transition-colors
+                      ${!day.isCurrentMonth ? "opacity-40" : ""}
+                      ${isToday ? "bg-primary/5" : ""}
+                      ${hasNewTask ? "bg-yellow-50 border-yellow-300" : ""}
+                    `}
                   >
+                    {/* ✅ Badge "NEW" trên góc ô nếu có task mới */}
+                    {hasNewTask && (
+                      <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-yellow-400 text-yellow-900 px-1 rounded-sm leading-tight animate-pulse">
+                        NEW
+                      </span>
+                    )}
                     <div
                       className={`font-bold text-right pr-0.5 md:pr-1 text-[10px] md:text-[11px] ${isToday ? "text-primary" : ""}`}
                     >
@@ -344,10 +388,18 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                       {dayTasks.slice(0, 2).map((task) => (
                         <div
                           key={task.id}
-                          className="rounded px-0.5 md:px-1 py-[1px] mb-0.5 text-white text-[9px] md:text-[10px] truncate shadow-sm"
-                          style={{ backgroundColor: task.color || "#3b82f6" }}
+                          className={`rounded px-0.5 md:px-1 py-[1px] mb-0.5 text-white text-[9px] md:text-[10px] truncate shadow-sm
+                            ${task.isNew ? "ring-1 ring-yellow-300" : ""}
+                          `}
+                          // ✅ Task mới hiển thị màu vàng/cam thay vì màu gốc
+                          style={{
+                            backgroundColor: task.isNew
+                              ? "#f59e0b"
+                              : task.color || "#3b82f6",
+                          }}
                         >
                           <span className="hidden md:inline">{task.time} </span>
+                          {task.isNew && "🆕 "}
                           {task.name}
                         </div>
                       ))}
@@ -364,7 +416,6 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
       </div>
 
       {/* ── Members Sidebar (desktop) / Drawer (mobile) ──────────────────────── */}
-      {/* Mobile drawer */}
       {showMembers && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
@@ -392,7 +443,6 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
         </div>
       )}
 
-      {/* Desktop sidebar */}
       <div className="hidden md:flex md:col-span-1 border-l border-base-300 flex-col p-3 bg-base-200/30 max-h-[calc(100vh-3.5rem)] overflow-hidden">
         <h3 className="font-semibold mb-3 text-sm text-base-content/70 flex items-center gap-1">
           <Users size={14} /> Members
@@ -438,25 +488,40 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
             {selectedDay.tasks.map((task) => (
               <div
                 key={task.id}
-                className="rounded-2xl p-3 text-white text-sm shadow-md relative overflow-hidden"
-                style={{ backgroundColor: task.color || "#3b82f6" }}
+                className={`rounded-2xl p-3 text-white text-sm shadow-md relative overflow-hidden
+                  ${task.isNew ? "ring-2 ring-yellow-300" : ""}
+                `}
+                style={{
+                  backgroundColor: task.isNew
+                    ? "#f59e0b"
+                    : task.color || "#3b82f6",
+                }}
               >
+                {/* ✅ Badge NEW trong modal */}
+                {task.isNew && (
+                  <span className="absolute top-2 left-2 text-[9px] font-bold bg-white text-yellow-600 px-1.5 py-0.5 rounded-full">
+                    🆕 Mới
+                  </span>
+                )}
+
                 {group.role === "ADMIN" && (
                   <button
-                    className="absolute top-2 right-2 btn btn-xs bg-white/20 hover:bg-white/30 border-0 text-white"
-                    onClick={async () => {
-                      await deleteTask(group.organizationId, task.id);
-                      setSelectedDay((prev) => ({
-                        ...prev,
-                        tasks: prev.tasks.filter((t) => t.id !== task.id),
-                      }));
-                    }}
+                    disabled={loadingStates[`delete_${task.id}`]}
+                    className={`absolute top-2 right-2 btn btn-xs border-0 text-white
+                      ${
+                        loadingStates[`delete_${task.id}`]
+                          ? "bg-gray-400/50 cursor-not-allowed"
+                          : "bg-white/20 hover:bg-white/30"
+                      }`}
+                    onClick={() => handleDeleteTask(task.id)}
                   >
-                    Delete
+                    {loadingStates[`delete_${task.id}`] ? "..." : "Delete"}
                   </button>
                 )}
 
-                <div className="font-semibold mb-1 pr-16">
+                <div
+                  className={`font-semibold mb-1 pr-16 ${task.isNew ? "mt-5" : ""}`}
+                >
                   {task.time} – {task.name}
                 </div>
                 {task.description && (
@@ -488,7 +553,7 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                   {/* Upload proof */}
                   {new Date(task.date).setHours(0, 0, 0, 0) ===
                     new Date().setHours(0, 0, 0, 0) &&
-                    task.assignees.some((u) => u.id === group.userId) &&
+                    task.assignees?.some((u) => u.id === group.userId) &&
                     !task.proof && (
                       <div className="flex gap-2 flex-wrap items-center">
                         <label className="cursor-pointer bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-full text-xs">
@@ -502,8 +567,9 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                             className="hidden"
                           />
                         </label>
+                        {/* ✅ Upload button với loading */}
                         <button
-                          disabled={!file}
+                          disabled={!file || loadingStates[`proof_${task.id}`]}
                           onClick={() =>
                             handleSubmitEvidence(
                               group.organizationId,
@@ -511,20 +577,30 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                               task,
                             )
                           }
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${file ? "bg-white text-blue-600" : "bg-white/10 opacity-50 cursor-not-allowed"}`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all
+                            ${
+                              loadingStates[`proof_${task.id}`]
+                                ? "bg-gray-400 text-gray-100 cursor-not-allowed opacity-70"
+                                : file
+                                  ? "bg-white text-blue-600 hover:bg-white/90"
+                                  : "bg-white/10 opacity-50 cursor-not-allowed"
+                            }`}
                         >
-                          Upload
+                          {loadingStates[`proof_${task.id}`]
+                            ? "Uploading..."
+                            : "Upload"}
                         </button>
                       </div>
                     )}
 
-                  {/* Apply penalty */}
+                  {/* ✅ Apply Penalty button với loading */}
                   {!task.penalty_status &&
                     !task.proof &&
                     new Date(selectedDay.date).setHours(0, 0, 0, 0) <
                       new Date().setHours(0, 0, 0, 0) &&
                     group.role === "ADMIN" && (
                       <button
+                        disabled={loadingStates[`penalty_${task.id}`]}
                         onClick={() =>
                           handleApplyPenalty(
                             group.organizationId,
@@ -534,16 +610,23 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                             task,
                           )
                         }
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-0.5 rounded-full text-xs font-semibold transition-colors"
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all
+                          ${
+                            loadingStates[`penalty_${task.id}`]
+                              ? "bg-gray-400 text-gray-100 cursor-not-allowed opacity-70"
+                              : "bg-red-500 hover:bg-red-600 text-white"
+                          }`}
                       >
-                        Apply Penalty
+                        {loadingStates[`penalty_${task.id}`]
+                          ? "Applying..."
+                          : "Apply Penalty"}
                       </button>
                     )}
                 </div>
 
                 {/* Assignees */}
                 <div className="bg-white/10 rounded-xl p-2 space-y-1.5">
-                  {task.assignees.map((a) => (
+                  {task.assignees?.map((a) => (
                     <div key={a.id} className="flex items-center gap-2 text-xs">
                       <img
                         src={a.avatarLink}
@@ -644,11 +727,25 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
               setFormData={setFormData}
             />
             <div className="flex justify-end pt-1">
+              {/* ✅ Save Task button với loading */}
               <button
                 type="submit"
-                className="btn btn-primary btn-sm rounded-xl px-6"
+                disabled={loadingStates["addTask"]}
+                className={`btn btn-sm rounded-xl px-6 transition-all
+                  ${
+                    loadingStates["addTask"]
+                      ? "bg-gray-400 text-gray-100 cursor-not-allowed border-0"
+                      : "btn-primary"
+                  }`}
               >
-                Save Task
+                {loadingStates["addTask"] ? (
+                  <span className="flex items-center gap-2">
+                    <span className="loading loading-spinner loading-xs" />
+                    Saving...
+                  </span>
+                ) : (
+                  "Save Task"
+                )}
               </button>
             </div>
           </form>
@@ -797,11 +894,25 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
             </div>
 
             <div className="flex justify-end">
+              {/* ✅ Auto Assign button với loading */}
               <button
                 type="submit"
-                className="btn btn-primary btn-sm rounded-xl px-6"
+                disabled={loadingStates["autoAssign"]}
+                className={`btn btn-sm rounded-xl px-6 transition-all
+                  ${
+                    loadingStates["autoAssign"]
+                      ? "bg-gray-400 text-gray-100 cursor-not-allowed border-0"
+                      : "btn-primary"
+                  }`}
               >
-                Auto Assign
+                {loadingStates["autoAssign"] ? (
+                  <span className="flex items-center gap-2">
+                    <span className="loading loading-spinner loading-xs" />
+                    Assigning...
+                  </span>
+                ) : (
+                  "Auto Assign"
+                )}
               </button>
             </div>
           </form>
