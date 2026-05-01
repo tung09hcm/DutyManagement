@@ -1,54 +1,84 @@
-import { Task, User, Penalty, sequelize, UserOrgTask, UserTask } from "../model/index.js";
+import {
+  Task,
+  User,
+  Penalty,
+  sequelize,
+  UserOrgTask,
+  UserTask,
+} from "../model/index.js";
 import cloudinary from "../lib/cloudinary.js";
 import { Op } from "sequelize";
-
+import { io, userSocketMap } from "../index.js";
 /**
  * POST /api/orgs/:orgId/tasks
  * Tạo một task mới trong một tổ chức và giao cho thành viên.
  * Yêu cầu quyền ADMIN hoặc COLLABORATOR.
  */
 export const createTask = async (req, res) => {
-    const transaction = await sequelize.transaction();
-    const who_assign_id = req.user.id;
-    try {
-        const { orgId } = req.params;
-        const { name, description, penalty, deadline, assigneeIds } = req.body; // assigneeIds là một mảng các userId
-        console.log("assigneeIds type:", typeof assigneeIds, assigneeIds);
-        console.log("assigneeIds: " + assigneeIds);
-        if (!name || !deadline || !assigneeIds || !assigneeIds.length) {
-            return res.status(400).json({ message: "Name, deadline, and at least one assignee are required." });
-        }
-        const d = new Date(deadline);
-        d.setHours(23, 59, 59, 999);
-        // Bước 1: Tạo Task bên trong transaction
-        const newTask = await Task.create({
-            name,
-            description,
-            penalty,
-            deadline: d,
-            organizationId: orgId,
-            proof: "", // Khởi tạo proof rỗng
-            id_assign: who_assign_id
-        }, { transaction });
+  const transaction = await sequelize.transaction();
+  const who_assign_id = req.user.id;
+  try {
+    const { orgId } = req.params;
+    const { name, description, penalty, deadline, assigneeIds } = req.body;
 
-        // Bước 2: Giao task cho các user trong mảng assigneeIds
-        await newTask.addUsers(assigneeIds, {
-            through: { organizationId: orgId },
-            transaction
-        });
-
-
-        // Nếu mọi thứ thành công, commit transaction
-        await transaction.commit();
-
-        res.status(201).json({ message: "Task created and assigned successfully.", task: newTask });
-
-    } catch (error) {
-        // Nếu có lỗi, rollback tất cả thay đổi
-        await transaction.rollback();
-        console.error("Error creating task:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+    if (!name || !deadline || !assigneeIds || !assigneeIds.length) {
+      return res.status(400).json({
+        message: "Name, deadline, and at least one assignee are required.",
+      });
     }
+
+    const d = new Date(deadline);
+    d.setHours(23, 59, 59, 999);
+
+    const newTask = await Task.create(
+      {
+        name,
+        description,
+        penalty,
+        deadline: d,
+        organizationId: orgId,
+        proof: "",
+        id_assign: who_assign_id,
+      },
+      { transaction },
+    );
+
+    await newTask.addUsers(assigneeIds, {
+      through: { organizationId: orgId },
+      transaction,
+    });
+
+    await transaction.commit();
+
+    // ✅ Gửi notification đến từng assignee đang online
+    const taskPayload = {
+      taskId: newTask.id,
+      taskName: newTask.name,
+      deadline: newTask.deadline,
+      orgId,
+      assignedBy: who_assign_id,
+      message: `Bạn có task mới: "${newTask.name}"`,
+    };
+
+    assigneeIds.forEach((userId) => {
+      const socketId = userSocketMap.get(String(userId));
+      if (socketId) {
+        io.to(socketId).emit("new_task", taskPayload); // ✅ Chỉ gửi đúng người
+        console.log(`Notified user ${userId} (socket: ${socketId})`);
+      } else {
+        console.log(`User ${userId} is offline, skipped`);
+      }
+    });
+
+    res.status(201).json({
+      message: "Task created and assigned successfully.",
+      task: newTask,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error creating task:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 export const autoAssign = async (req, res) => {
@@ -74,7 +104,9 @@ export const autoAssign = async (req, res) => {
 
     if (users.length === 0) {
       await transaction.rollback();
-      return res.status(400).json({ message: "No users in this organization to assign tasks." });
+      return res
+        .status(400)
+        .json({ message: "No users in this organization to assign tasks." });
     }
 
     let userIndex = 0;
@@ -109,9 +141,9 @@ export const autoAssign = async (req, res) => {
             deadline,
             proof: "",
             status: false,
-            id_assign: who_assign_id
+            id_assign: who_assign_id,
           },
-          { transaction }
+          { transaction },
         );
 
         // --- Gắn user thực hiện ---
@@ -119,9 +151,9 @@ export const autoAssign = async (req, res) => {
           {
             userId: assignedUser.userId,
             taskId: createdTask.id,
-            organizationId: orgId
+            organizationId: orgId,
           },
-          { transaction }
+          { transaction },
         );
 
         // --- Tiến ngày ---
@@ -130,8 +162,9 @@ export const autoAssign = async (req, res) => {
     }
 
     await transaction.commit();
-    return res.status(200).json({ message: "Tasks auto-assigned successfully." });
-
+    return res
+      .status(200)
+      .json({ message: "Tasks auto-assigned successfully." });
   } catch (error) {
     await transaction.rollback();
     console.error("Error auto assign task:", error);
@@ -139,25 +172,25 @@ export const autoAssign = async (req, res) => {
   }
 };
 
-export const deleteTask = async (req,res) => {
-  try{
+export const deleteTask = async (req, res) => {
+  try {
     const { taskId } = req.params;
     const deletedRows = await Task.destroy({
-      where: { 
+      where: {
         id: taskId,
-        status: false
-      }
+        status: false,
+      },
     });
     if (deletedRows === 0) {
       return res.status(404).json({ message: "Task not found." });
     }
 
     res.status(200).json({ message: "Task deleted successfully." });
-  }catch(error){
+  } catch (error) {
     console.error("Error deleting task:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 /**
  * POST /api/orgs/:orgId/tasks/:taskId/penalties
  * Tạo penalty cho một user cụ thể của một task đã quá hạn.
@@ -177,7 +210,9 @@ export const createPenalty = async (req, res) => {
 
     // Kiểm tra xem deadline đã qua chưa
     if (new Date() < new Date(task.deadline)) {
-      return res.status(400).json({ message: "Cannot create penalty before the deadline has passed." });
+      return res.status(400).json({
+        message: "Cannot create penalty before the deadline has passed.",
+      });
     }
 
     // Duyệt qua từng user trong danh sách
@@ -189,7 +224,9 @@ export const createPenalty = async (req, res) => {
       // Kiểm tra xem user có được giao task này không
       const isAssigned = await task.hasUser(userId);
       if (!isAssigned) {
-        console.warn(`User ${userId} is not assigned to task ${taskId}, skipping...`);
+        console.warn(
+          `User ${userId} is not assigned to task ${taskId}, skipping...`,
+        );
         continue;
       }
 
@@ -211,13 +248,11 @@ export const createPenalty = async (req, res) => {
       message: "Penalties created successfully.",
       penalties: createdPenalties,
     });
-
   } catch (error) {
     console.error("Error creating penalty:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 /**
  * DELETE /api/orgs/:orgId/penalties/:penaltyId
@@ -225,23 +260,22 @@ export const createPenalty = async (req, res) => {
  * Yêu cầu quyền ADMIN hoặc COLLABORATOR.
  */
 export const deletePenalty = async (req, res) => {
-    try {
-        const { penaltyId } = req.params;
+  try {
+    const { penaltyId } = req.params;
 
-        const deletedRows = await Penalty.destroy({
-            where: { id: penaltyId }
-        });
+    const deletedRows = await Penalty.destroy({
+      where: { id: penaltyId },
+    });
 
-        if (deletedRows === 0) {
-            return res.status(404).json({ message: "Penalty not found." });
-        }
-
-        res.status(200).json({ message: "Penalty deleted successfully." });
-
-    } catch (error) {
-        console.error("Error deleting penalty:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+    if (deletedRows === 0) {
+      return res.status(404).json({ message: "Penalty not found." });
     }
+
+    res.status(200).json({ message: "Penalty deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting penalty:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 /**
@@ -249,24 +283,26 @@ export const deletePenalty = async (req, res) => {
  * Lấy tất cả penalty của một người dùng.
  */
 export const getUserPenalties = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const requesterId = req.user.id;
-        
-        const penalties = await Penalty.findAll({
-            where: { UserId: userId },
-            include: [{ // Kèm theo thông tin task để biết penalty này của task nào
-                model: Task,
-                attributes: ['id', 'name', 'deadline']
-            }]
-        });
+  try {
+    const { userId } = req.params;
+    const requesterId = req.user.id;
 
-        res.status(200).json(penalties);
+    const penalties = await Penalty.findAll({
+      where: { UserId: userId },
+      include: [
+        {
+          // Kèm theo thông tin task để biết penalty này của task nào
+          model: Task,
+          attributes: ["id", "name", "deadline"],
+        },
+      ],
+    });
 
-    } catch (error) {
-        console.error("Error fetching user penalties:", error);
-        res.status(500).json({ message: "Internal Server Error" });
-    }
+    res.status(200).json(penalties);
+  } catch (error) {
+    console.error("Error fetching user penalties:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 /**
@@ -274,37 +310,43 @@ export const getUserPenalties = async (req, res) => {
  * Người dùng được giao task nộp ảnh bằng chứng.
  */
 export const submitTaskProof = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ message: "No proof image provided" });
-        }
-        
-        // Middleware verifyTaskAssignment đã tìm và gắn task vào req
-        const task = req.task; 
-        
-        // Upload ảnh lên Cloudinary
-        const uploadStream = cloudinary.uploader.upload_stream({
-            folder: 'task_proofs'
-        }, async (error, result) => {
-            if (error) {
-                console.error('Cloudinary upload error:', error);
-                return res.status(500).json({ message: "Error uploading proof to cloud service." });
-            }
-
-            // Cập nhật link bằng chứng và chuyển status thành true (đã nộp)
-            task.proof = result.secure_url;
-            task.status = true; 
-            await task.save();
-
-            res.status(200).json({ message: "Task proof submitted successfully.", task });
-        });
-
-        uploadStream.end(req.file.buffer);
-
-    } catch (error) {
-        console.error("Error submitting task proof:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No proof image provided" });
     }
+
+    // Middleware verifyTaskAssignment đã tìm và gắn task vào req
+    const task = req.task;
+
+    // Upload ảnh lên Cloudinary
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "task_proofs",
+      },
+      async (error, result) => {
+        if (error) {
+          console.error("Cloudinary upload error:", error);
+          return res
+            .status(500)
+            .json({ message: "Error uploading proof to cloud service." });
+        }
+
+        // Cập nhật link bằng chứng và chuyển status thành true (đã nộp)
+        task.proof = result.secure_url;
+        task.status = true;
+        await task.save();
+
+        res
+          .status(200)
+          .json({ message: "Task proof submitted successfully.", task });
+      },
+    );
+
+    uploadStream.end(req.file.buffer);
+  } catch (error) {
+    console.error("Error submitting task proof:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 /**
@@ -312,31 +354,33 @@ export const submitTaskProof = async (req, res) => {
  * ADMIN hoặc COLLABORATOR cập nhật trạng thái của task.
  */
 export const updateTaskStatus = async (req, res) => {
-    try {
-        const { taskId } = req.params;
-        const { status, penalty_status } = req.body;
+  try {
+    const { taskId } = req.params;
+    const { status, penalty_status } = req.body;
 
-        const taskToUpdate = await Task.findByPk(taskId);
-        if (!taskToUpdate) {
-            return res.status(404).json({ message: "Task not found." });
-        }
-
-        // Chỉ cập nhật những trường được cung cấp
-        if (typeof status === 'boolean') {
-            taskToUpdate.status = status;
-        }
-        if (typeof penalty_status === 'boolean') {
-            taskToUpdate.penalty_status = penalty_status;
-        }
-
-        await taskToUpdate.save();
-
-        res.status(200).json({ message: "Task status updated successfully.", task: taskToUpdate });
-
-    } catch (error) {
-        console.error("Error updating task status:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+    const taskToUpdate = await Task.findByPk(taskId);
+    if (!taskToUpdate) {
+      return res.status(404).json({ message: "Task not found." });
     }
+
+    // Chỉ cập nhật những trường được cung cấp
+    if (typeof status === "boolean") {
+      taskToUpdate.status = status;
+    }
+    if (typeof penalty_status === "boolean") {
+      taskToUpdate.penalty_status = penalty_status;
+    }
+
+    await taskToUpdate.save();
+
+    res.status(200).json({
+      message: "Task status updated successfully.",
+      task: taskToUpdate,
+    });
+  } catch (error) {
+    console.error("Error updating task status:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 export const getTasksForThreeMonths = async (req, res) => {
@@ -347,7 +391,11 @@ export const getTasksForThreeMonths = async (req, res) => {
     const now = new Date();
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const startOfNextNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+    const startOfNextNextMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      1,
+    );
 
     // 🔹 Lấy task trong 3 tháng có kèm danh sách user được assign
     const tasks = await Task.findAll({
@@ -376,7 +424,7 @@ export const getTasksForThreeMonths = async (req, res) => {
       const dd = String(dateObj.getDate()).padStart(2, "0");
       const hh = String(dateObj.getHours()).padStart(2, "0");
       const mi = String(dateObj.getMinutes()).padStart(2, "0");
-      if(t.name === "28-10-1"){
+      if (t.name === "28-10-1") {
         console.log(t.name + " " + t.deadline);
       }
       return {
@@ -411,12 +459,19 @@ export const getPenalties = async (req, res) => {
     console.log("orgId: ", orgId);
     const penalties = await Penalty.findAll({
       where: {
-        organizationId: orgId
+        organizationId: orgId,
       },
       include: [
         {
           model: User,
-          attributes: ["id", "username", "email", "avatarLink", "name", "lastname"],
+          attributes: [
+            "id",
+            "username",
+            "email",
+            "avatarLink",
+            "name",
+            "lastname",
+          ],
         },
         {
           model: Task,
@@ -424,9 +479,9 @@ export const getPenalties = async (req, res) => {
         },
       ],
       order: [["updatedAt", "ASC"]],
-    })
+    });
     console.log("penalties: ", penalties);
-    return res.status(200).json({penalties: penalties});
+    return res.status(200).json({ penalties: penalties });
   } catch (error) {
     console.error("Error fetching penalties:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -439,7 +494,6 @@ export const getPenalties = async (req, res) => {
 //     const who_assign_id = req.user.id;
 //     const { name, description, penalty, assigneeIds } = req.body;
 //     // Vào UserTask để xóa hết các mối liên hệ nếu có trong assigneeIds
-
 
 //   }catch(error){
 //     console.error("Error edit task: ", error);

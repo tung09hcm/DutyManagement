@@ -3,6 +3,8 @@ import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 import https from "https";
+import http from "http";
+import { Server } from "socket.io";
 import axios from "axios";
 import fs from "fs";
 import cookieParser from "cookie-parser";
@@ -14,28 +16,66 @@ import taskRoutes from "./routes/task.routes.js";
 
 dotenv.config();
 
-const privateKey = fs.readFileSync("cert/server.key", "utf8");
-const certificate = fs.readFileSync("cert/server.cert", "utf8");
-const credentials = { key: privateKey, cert: certificate };
-
 const PORT = process.env.PORT;
 const __dirname = path.resolve();
 const app = express();
+
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
+
+const FRONTEND_ORIGIN = "https://dutymanagement-3.onrender.com";
+
 app.use(
   cors({
-    origin: "https://dutymanagement-3.onrender.com",
-    // origin: "https://dutymanagement-2.onrender.com",
+    origin: FRONTEND_ORIGIN,
     credentials: true,
   }),
 );
 
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: FRONTEND_ORIGIN,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// server.js
+const userSocketMap = new Map(); // userId -> socketId
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("register", (userId) => {
+    userSocketMap.set(String(userId), socket.id);
+    console.log(`User ${userId} mapped to socket ${socket.id}`);
+  });
+
+  socket.on("send_message", (data) => {
+    io.emit("receive_message", data);
+  });
+
+  socket.on("disconnect", () => {
+    // Xóa user khỏi map khi disconnect
+    for (const [uid, sid] of userSocketMap.entries()) {
+      if (sid === socket.id) {
+        userSocketMap.delete(uid);
+        console.log(`User ${uid} disconnected`);
+        break;
+      }
+    }
+  });
+});
+
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/tasks", taskRoutes);
+
 app.get("/api/health", async (req, res) => {
   try {
     await sequelize.query("SELECT 1");
@@ -46,20 +86,20 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
-
 app.get("*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
 });
+export { userSocketMap, io };
+// ✅ Dùng server.listen thay vì app.listen
+server.listen(PORT, () => {
+  console.log("Server is listening on port:", PORT);
 
-const httpsServer = https.createServer(credentials, app);
-app.listen(PORT, () => {
-  console.log("Server is listening in Port: ", PORT);
   setInterval(
     async () => {
       try {
-        await axios.get(`https://dutymanagement-3.onrender.com/api/health`);
+        await axios.get(`${FRONTEND_ORIGIN}/api/health`);
         console.log("Self ping success");
-      } catch (err) {
+      } catch {
         console.log("Self ping failed");
       }
     },

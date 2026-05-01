@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useTaskNotification } from "../hooks/useSocket";
 import { ChevronLeft, ChevronRight, X, Calendar, Users } from "lucide-react";
 import { useTaskStore } from "../store/useTaskStore";
 import { useUserStore } from "../store/useUserStore";
@@ -70,6 +71,7 @@ const TaskStatusBadge = ({ task, selectedDate }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const GroupCalendarView = ({ group, onBack, manageUser }) => {
+  useTaskNotification();
   const [invite_token, setInviteToken] = useState("");
   const today = new Date();
   const [viewDate, setViewDate] = useState(today);

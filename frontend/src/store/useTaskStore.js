@@ -19,10 +19,10 @@ export const useTaskStore = create((set) => ({
       set({ isLoading: false });
     }
   },
-  addTask: async (data,orgId) => {
+  addTask: async (data, orgId) => {
     try {
       set({ isLoading: true });
-      const res = await axiosInstance.post(`/tasks/${orgId}/tasks`,data);
+      const res = await axiosInstance.post(`/tasks/${orgId}/tasks`, data);
       set({ tasks: res.data.tasks || [] });
       toast.success("Add Task Successfully");
     } catch (err) {
@@ -50,12 +50,12 @@ export const useTaskStore = create((set) => ({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-        }
+        },
       );
       const updatedTask = res.data.task;
       set((state) => ({
         tasks: state.tasks.map((t) =>
-          t.id === updatedTask.id ? updatedTask : t
+          t.id === updatedTask.id ? updatedTask : t,
         ),
       }));
 
@@ -68,41 +68,44 @@ export const useTaskStore = create((set) => ({
       set({ isLoading: false });
     }
   },
-  applyPenalty: async(orgId, taskId, userIds, taskPenalty) => {
+  applyPenalty: async (orgId, taskId, userIds, taskPenalty) => {
     try {
       set({ isLoading: true });
       const payload = {
         userIds,
-        description: taskPenalty
+        description: taskPenalty,
       };
       // /:orgId/tasks/:taskId/penalties
-      await axiosInstance.post(`/tasks/${orgId}/tasks/${taskId}/penalties`,payload);
+      await axiosInstance.post(
+        `/tasks/${orgId}/tasks/${taskId}/penalties`,
+        payload,
+      );
       toast.success("Apply Penalty Successfully");
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Apply penalty failed");
-    }finally {
+    } finally {
       set({ isLoading: false });
     }
   },
-  deleteTask: async(orgId, taskId) => {
-    try{
+  deleteTask: async (orgId, taskId) => {
+    try {
       set({ isLoading: true });
       // /:orgId/tasks/:taskId/deleteTask
       await axiosInstance.delete(`/tasks/${orgId}/tasks/${taskId}/deleteTask`);
       toast.success("Delete task Successfully");
-    }catch(error){
+    } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Delete task failed");
     }
   },
-  autoAssign: async(orgId,data) => {
-    try{
+  autoAssign: async (orgId, data) => {
+    try {
       set({ isLoading: true });
       // /:orgId/tasks/autoAssign
-      await axiosInstance.post(`/tasks/${orgId}/tasks/autoAssign`,data);
+      await axiosInstance.post(`/tasks/${orgId}/tasks/autoAssign`, data);
       toast.success("Auto assign tasks Successfully");
-    }catch(error){
+    } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Auto assign tasks failed");
     }
