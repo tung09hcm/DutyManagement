@@ -1,5 +1,5 @@
-import {create} from 'zustand';
-import { axiosInstance } from '../lib/axios';
+import { create } from "zustand";
+import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 
 export const useGroupStore = create((set) => ({
@@ -17,9 +17,9 @@ export const useGroupStore = create((set) => ({
       set({ isLoading: false });
     }
   },
-  createGroup: async(data) => {
+  createGroup: async (data) => {
     try {
-      const res = await axiosInstance.post(`/org/create`,data);
+      const res = await axiosInstance.post(`/org/create`, data);
       toast.success("Create Group Successfully");
       return res.data;
     } catch (error) {
@@ -27,7 +27,7 @@ export const useGroupStore = create((set) => ({
       toast.error("Failed to create group");
     }
   },
-  createInviteToken: async(orgId) => {
+  createInviteToken: async (orgId) => {
     try {
       const res = await axiosInstance.post(`/org/${orgId}/invite`);
       toast.success("Create Invite Token Successfully");
@@ -37,21 +37,20 @@ export const useGroupStore = create((set) => ({
       toast.error("Failed to create invite link");
     }
   },
-  joinOrg: async(inviteToken) => {
+  joinOrg: async (inviteToken) => {
     try {
       const data = {
-        "inviteToken": inviteToken
-      }
-      const res = await axiosInstance.post(`/org/join`,data);
+        inviteToken: inviteToken,
+      };
+      const res = await axiosInstance.post(`/org/join`, data);
       toast.success("Join Successfully");
       return res.data;
-    }
-    catch (error) {
+    } catch (error) {
       console.log("Error join organization", error);
       toast.error("Failed to join organization via inviteToken");
     }
   },
-  editUserRole: async(orgId, userId) => {
+  editUserRole: async (orgId, userId) => {
     try {
       await axiosInstance.put(`/org/${orgId}/members/${userId}/role`);
       toast.success("Change User's role succesfully");

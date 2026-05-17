@@ -16,7 +16,9 @@ import taskRoutes from "./routes/task.routes.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT;
+const isLocalDev =
+  process.env.DEV_ENV === "local" || process.argv.slice(2).includes("local");
+const PORT = process.env.PORT || 8443;
 const __dirname = path.resolve();
 const app = express();
 
@@ -24,7 +26,19 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
 
-const FRONTEND_ORIGIN = "https://dutymanagement-3.onrender.com";
+const LOCAL_FRONTEND_ORIGINS = (
+  process.env.FRONTEND_URL || "http://localhost:5173,http://localhost:3000"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const PRODUCTION_FRONTEND_ORIGIN = "https://dutymanagement-3.onrender.com";
+const FRONTEND_ORIGIN = isLocalDev
+  ? LOCAL_FRONTEND_ORIGINS
+  : PRODUCTION_FRONTEND_ORIGIN;
+const PUBLIC_ORIGIN = isLocalDev
+  ? `http://localhost:${PORT}`
+  : PRODUCTION_FRONTEND_ORIGIN;
 
 app.use(
   cors({
@@ -93,16 +107,19 @@ export { userSocketMap, io };
 // ✅ Dùng server.listen thay vì app.listen
 server.listen(PORT, () => {
   console.log("Server is listening on port:", PORT);
+  console.log("Running mode:", isLocalDev ? "local" : "production");
 
-  setInterval(
-    async () => {
-      try {
-        await axios.get(`${FRONTEND_ORIGIN}/api/health`);
-        console.log("Self ping success");
-      } catch {
-        console.log("Self ping failed");
-      }
-    },
-    1000 * 60 * 5,
-  );
+  if (!isLocalDev) {
+    setInterval(
+      async () => {
+        try {
+          await axios.get(`${PUBLIC_ORIGIN}/api/health`);
+          console.log("Self ping success");
+        } catch {
+          console.log("Self ping failed");
+        }
+      },
+      1000 * 60 * 5,
+    );
+  }
 });

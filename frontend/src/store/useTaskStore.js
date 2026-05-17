@@ -110,14 +110,62 @@ export const useTaskStore = create((set) => ({
       toast.error(error.response?.data?.message || "Auto assign tasks failed");
     }
   },
-  // fetchUserActivities: async(orgId) => {
-  //   try{
-  //     set({ isLoading: true });
+  undoTask: async (orgId, taskId) => {
+    try {
+      set({ isLoading: true });
+      const res = await axiosInstance.put(
+        `/tasks/${orgId}/tasks/${taskId}/undoTask`,
+      );
+      const updatedTask = res.data.task;
 
-  //     toast.success("Auto assign tasks Successfully");
-  //   }catch(error){
-  //     console.error(error);
-  //     toast.error(error.response?.data?.message || "Auto assign tasks failed");
-  //   }
-  // }
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                ...updatedTask,
+                status: false,
+              }
+            : task,
+        ),
+      }));
+
+      toast.success("Undo task successfully");
+      return updatedTask;
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Undo Task Failed");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  tickTask: async (orgId, taskId) => {
+    try {
+      set({ isLoading: true });
+      const res = await axiosInstance.put(
+        `/tasks/${orgId}/tasks/${taskId}/tickTask`,
+      );
+      const updatedTask = res.data.task;
+
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                ...updatedTask,
+                status: true,
+              }
+            : task,
+        ),
+      }));
+
+      toast.success("Tick task successfully");
+      return updatedTask;
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Tick Task Failed");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));

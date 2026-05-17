@@ -333,7 +333,6 @@ export const submitTaskProof = async (req, res) => {
 
         // Cập nhật link bằng chứng và chuyển status thành true (đã nộp)
         task.proof = result.secure_url;
-        task.status = true;
         await task.save();
 
         res
@@ -500,3 +499,57 @@ export const getPenalties = async (req, res) => {
 //     return res.status(500).json({message: "Internal server error"});
 //   }
 // }
+
+export const undoTask = async (req, res) => {
+  try {
+    const { orgId, taskId } = req.params;
+
+    const task = await Task.findOne({
+      where: {
+        id: taskId,
+        organizationId: orgId,
+      },
+    });
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    task.status = false;
+    await task.save();
+
+    return res.status(200).json({
+      message: "Task undone successfully.",
+      task,
+    });
+  } catch (error) {
+    console.error("Error undo task:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const tickTask = async (req, res) => {
+  try {
+    const { orgId, taskId } = req.params;
+
+    const task = await Task.findOne({
+      where: {
+        id: taskId,
+        organizationId: orgId,
+      },
+    });
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    task.status = true;
+    await task.save();
+
+    return res.status(200).json({
+      message: "Task undone successfully.",
+      task,
+    });
+  } catch (error) {
+    console.error("Error undo task:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

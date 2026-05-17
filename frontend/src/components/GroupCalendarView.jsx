@@ -122,6 +122,8 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
     applyPenalty,
     autoAssign,
     deleteTask,
+    undoTask,
+    tickTask,
   } = useTaskStore();
   const { createInviteToken } = useGroupStore();
 
@@ -244,6 +246,52 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
       console.error("Apply penalty failed:", error);
     } finally {
       setLoading(`penalty_${taskId}`, false);
+    }
+  };
+
+  const handleUndoTask = async (orgId, taskId) => {
+    setLoading(`undo_${taskId}`, true);
+    try {
+      const updatedTask = await undoTask(orgId, taskId);
+      setSelectedDay((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                ...updatedTask,
+                status: false,
+              }
+            : task,
+        ),
+      }));
+    } catch (error) {
+      console.error("Undo task failed:", error);
+    } finally {
+      setLoading(`undo_${taskId}`, false);
+    }
+  };
+
+  const handleTickTask = async (orgId, taskId) => {
+    setLoading(`undo_${taskId}`, true);
+    try {
+      const updatedTask = await tickTask(orgId, taskId);
+      setSelectedDay((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                ...updatedTask,
+                status: true,
+              }
+            : task,
+        ),
+      }));
+    } catch (error) {
+      console.error("Tick task failed:", error);
+    } finally {
+      setLoading(`undo_${taskId}`, false);
     }
   };
 
@@ -433,7 +481,7 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                 <X size={12} />
               </button>
             </div>
-            <MembersList users={users} isLoading={isLoading} />
+            <MembersList users={users} />
             <MemberActions
               group={group}
               manageUser={manageUser}
@@ -594,12 +642,54 @@ const GroupCalendarView = ({ group, onBack, manageUser }) => {
                       </div>
                     )}
 
-                  {/* ✅ Apply Penalty button với loading */}
+                  {!task.status &&
+                    (group.role === "ADMIN" ||
+                      group.role === "COLLABORATOR") && (
+                      <button
+                        disabled={loadingStates[`undo_${task.id}`]}
+                        onClick={() =>
+                          handleUndoTask(group.organizationId, task.id)
+                        }
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all
+                          ${
+                            loadingStates[`undo_${task.id}`]
+                              ? "bg-gray-400 text-gray-100 cursor-not-allowed opacity-70"
+                              : "bg-red-500 hover:bg-red-600 text-white"
+                          }`}
+                      >
+                        {loadingStates[`undo_${task.id}`]
+                          ? "Undoing..."
+                          : "Undo Task"}
+                      </button>
+                    )}
+
+                  {!task.status &&
+                    (group.role === "ADMIN" ||
+                      group.role === "COLLABORATOR") && (
+                      <button
+                        disabled={loadingStates[`undo_${task.id}`]}
+                        onClick={() =>
+                          handleTickTask(group.organizationId, task.id)
+                        }
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all
+                          ${
+                            loadingStates[`undo_${task.id}`]
+                              ? "bg-gray-400 text-gray-100 cursor-not-allowed opacity-70"
+                              : "bg-green-500 hover:bg-green-600 text-white"
+                          }`}
+                      >
+                        {loadingStates[`undo_${task.id}`]
+                          ? "Checking..."
+                          : "Confirm Task"}
+                      </button>
+                    )}
+
                   {!task.penalty_status &&
-                    !task.proof &&
+                    !task.status &&
                     new Date(selectedDay.date).setHours(0, 0, 0, 0) <
                       new Date().setHours(0, 0, 0, 0) &&
-                    group.role === "ADMIN" && (
+                    (group.role === "ADMIN" ||
+                      group.role === "COLLABORATOR") && (
                       <button
                         disabled={loadingStates[`penalty_${task.id}`]}
                         onClick={() =>
@@ -950,7 +1040,7 @@ const FormField = ({ label, children }) => (
   </div>
 );
 
-const MembersList = ({ users, isLoading }) => {
+const MembersList = ({ users }) => {
   if (!users?.length)
     return (
       <p className="text-xs italic text-base-content/50 p-2">No members</p>
